@@ -23,7 +23,7 @@ library of your choice (defaults to `:goth`):
 def deps do
   [
     {:broadway_cloud_pub_sub, "~> 0.1.0"},
-    {:goth, "~> 1.0.0"}
+    {:goth, "~> 0.11"}
   ]
 end
 ```
@@ -35,7 +35,7 @@ authentication library, you may need to explicitly include an HTTP client (such 
 def deps do
   [
     {:broadway_cloud_pub_sub, "~> 0.1.0"},
-    {:hacknet, "~> 1.9"}
+    {:hackney, "~> 1.9"}
   ]
 end
 ```
