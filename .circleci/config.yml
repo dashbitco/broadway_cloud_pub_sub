@@ -1,0 +1,95 @@
+version: 2
+jobs:
+  build:
+    parallelism: 1
+    docker:
+      - image: circleci/elixir:1.8.1
+        environment:
+          MIX_ENV: test
+
+    working_directory: ~/app
+
+    steps:
+      - checkout
+
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+
+      - restore_cache:
+          keys:
+            - v1-mix-cache-{{ checksum "mix.lock" }}
+            - v1-mix-cache
+      - restore_cache:
+          keys:
+            - v1-build-cache-{{ checksum "mix.lock" }}
+            - v1-build-cache
+
+      - run: mix do deps.get, deps.compile
+      - run: mix compile
+      - run: MIX_ENV=dev mix compile
+
+      - save_cache:
+          key: v1-mix-cache-{{ checksum "mix.lock" }}
+          paths: "deps"
+      - save_cache:
+          key: v1-mix-cache
+          paths: "deps"
+      - save_cache:
+          key: v1-build-cache-{{ checksum "mix.lock" }}
+          paths: "_build"
+      - save_cache:
+          key: v1-build-cache
+          paths: "_build"
+
+      - run: mix test
+      - run: MIX_ENV=docs mix docs
+
+      - store_test_results:
+          path: _build/test/lib/broadway_cloud_pub_sub
+
+      - store_artifacts:
+          path: doc
+
+  publish:
+    parallelism: 1
+    docker:
+      - image: circleci/elixir:1.8.1
+
+    working_directory: ~/app
+
+    steps:
+      - checkout
+
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+
+      - restore_cache:
+          keys:
+            - v1-mix-cache-{{ checksum "mix.lock" }}
+            - v1-mix-cache
+      - restore_cache:
+          keys:
+            - v1-build-cache-{{ checksum "mix.lock" }}
+            - v1-build-cache
+
+      - run: mix compile --force
+      - run: mix docs
+      - run: mix hex.publish --yes
+
+
+workflows:
+  version: 2
+  build-n-publish:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - publish:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
