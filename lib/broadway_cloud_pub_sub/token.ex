@@ -3,7 +3,7 @@ defmodule BroadwayCloudPubSub.Token do
   A generic behaviour to get an access token for Google Cloud Pub/Sub.
 
   This module defines callbacks to get an access token for Google Cloud Pub/Sub.
-  Modules that implement this behaviour should be passed as the `:token_provider`
+  Modules that implement this behaviour should be passed as the `:token_module`
   option from `BroadwayCloudPubSub.Producer`.
   """
 
