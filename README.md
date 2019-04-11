@@ -60,4 +60,4 @@ Broadway.start_link(
 
 For more information, please see the docs for [Broadway](https://hexdocs.pm/broadway).
 
-There is also an example app available at: [https://github.com/mcrumm/broadway_cloud_pub_sub](https://github.com/mcrumm/broadway_cloud_pub_sub)
+There is also an example app available at: [https://github.com/mcrumm/broadway_cloud_pub_sub_example](https://github.com/mcrumm/broadway_cloud_pub_sub_example)
