@@ -46,7 +46,8 @@ defmodule BroadwayCloudPubSub.MixProject do
       source_ref: "v#{@version}",
       source_url: @repo_url,
       extras: [
-        "README.md"
+        "README.md",
+        "CHANGELOG.md"
       ]
     ]
   end
