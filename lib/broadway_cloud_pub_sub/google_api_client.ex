@@ -7,7 +7,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   import GoogleApi.PubSub.V1.Api.Projects
   alias Broadway.{Message, Acknowledger}
-  alias GoogleApi.PubSub.V1.Model.{PullRequest, AcknowledgeRequest}
+  alias GoogleApi.PubSub.V1.Model.{PullRequest, AcknowledgeRequest, PubsubMessage}
   require Logger
 
   @behaviour BroadwayCloudPubSub.RestClient
@@ -92,7 +92,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
        when is_list(received_messages) do
     Enum.map(received_messages, fn received_message ->
       %Message{
-        data: received_message.message,
+        data: decode_message(received_message.message),
         acknowledger: {__MODULE__, ack_ref, received_message.ackId}
       }
     end)
@@ -105,6 +105,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp wrap_received_messages({:error, reason}, _) do
     Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect(reason)}")
     []
+  end
+
+  defp decode_message(%PubsubMessage{data: encoded_data} = message) do
+    data = Base.decode64!(encoded_data)
+
+    put_in(message.data, data)
   end
 
   defp put_max_number_of_messages(pull_request, demand) do

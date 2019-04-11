@@ -140,8 +140,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
              } = message1
 
       assert message1.acknowledger == {GoogleApiClient, opts.ack_ref, "1"}
+      assert {:ok, %{"data" => "Message 1"}} = Poison.decode(message1.data.data)
 
-      assert message2.acknowledger == {GoogleApiClient, opts.ack_ref, "2"}
+      assert {:ok, %{"data" => "Message 2"}} = Poison.decode(message2.data.data)
     end
 
     test "if the request fails, returns an empty list and log the error", %{
