@@ -12,14 +12,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       {
         "ackId": "1",
         "message": {
-          "data": "eyJtZXNzYWdlSWQiOiJNZXNzYWdlMSIsImRhdGEiOiJNZXNzYWdlIDEiLCJhdHRyaWJ1dGVzIjp7fX0=",
+          "data": "TWVzc2FnZTE=",
           "messageId": "19917247034"
         }
       },
       {
         "ackId": "2",
         "message": {
-          "data": "eyJtZXNzYWdlSWQiOiJNZXNzYWdlMiIsImRhdGEiOiJNZXNzYWdlIDIiLCJhdHRyaWJ1dGVzIjp7fX0=",
+          "data": "TWVzc2FnZTI=",
           "messageId": "19917247035"
         }
       }
@@ -136,13 +136,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       [message1, message2] = GoogleApiClient.receive_messages(10, opts)
 
       assert %Message{
-               data: %GoogleApi.PubSub.V1.Model.PubsubMessage{}
+               data: %GoogleApi.PubSub.V1.Model.PubsubMessage{data: "Message1"}
              } = message1
 
       assert message1.acknowledger == {GoogleApiClient, opts.ack_ref, "1"}
-      assert {:ok, %{"data" => "Message 1"}} = Poison.decode(message1.data.data)
 
-      assert {:ok, %{"data" => "Message 2"}} = Poison.decode(message2.data.data)
+      assert message2.data.data == "Message2"
     end
 
     test "if the request fails, returns an empty list and log the error", %{
