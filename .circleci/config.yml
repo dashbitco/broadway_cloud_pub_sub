@@ -54,6 +54,8 @@ jobs:
     parallelism: 1
     docker:
       - image: circleci/elixir:1.8.1
+        environment:
+          MIX_ENV: docs
 
     working_directory: ~/app
 
@@ -73,7 +75,7 @@ jobs:
             - v1-build-cache
 
       - run: mix compile --force
-      - run: MIX_ENV=docs mix docs
+      - run: mix docs
       - run: mix hex.publish --yes
 
 
