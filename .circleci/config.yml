@@ -73,7 +73,7 @@ jobs:
             - v1-build-cache
 
       - run: mix compile --force
-      - run: mix docs
+      - run: MIX_ENV=docs mix docs
       - run: mix hex.publish --yes
 
 
