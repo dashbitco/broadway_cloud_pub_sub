@@ -66,6 +66,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     |> acknowledge_messages(ack_ref)
   end
 
+  defp acknowledge_messages([], _), do: :ok
+
   defp acknowledge_messages(messages, {_pid, ref}) do
     ack_ids = Enum.map(messages, &extract_ack_id/1)
 
