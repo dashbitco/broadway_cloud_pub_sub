@@ -226,6 +226,29 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
+    test "with no successful messages, is a no-op", %{opts: base_opts} do
+      {:ok, opts} = GoogleApiClient.init(base_opts)
+
+      GoogleApiClient.ack(
+        opts.ack_ref,
+        [],
+        [
+          %Message{
+            acknowledger: {GoogleApiClient, opts.ack_ref, "1"},
+            data: nil,
+            status: {:failed, :test}
+          },
+          %Message{
+            acknowledger: {GoogleApiClient, opts.ack_ref, "2"},
+            data: nil,
+            status: {:failed, :test}
+          }
+        ]
+      )
+
+      refute_received {:http_request_called, _}
+    end
+
     test "if the request fails, returns :ok and logs the error", %{pid: pid, opts: base_opts} do
       Tesla.Mock.mock(fn %{method: :post} = req ->
         body_object = Poison.decode!(req.body)
