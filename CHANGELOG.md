@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2019-05-06
+
+### Changed
+- Fixed `BroadwayCloudPubSub.GoogleApiClient` attempting to send an empty acknowledge request.
+
 ## [0.1.2] - 2019-04-11
 
 ### Changed
@@ -30,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 [Unreleased]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.2...HEAD
+[0.1.3]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mcrumm/broadway_cloud_pub_sub/releases/tag/v0.1.0
