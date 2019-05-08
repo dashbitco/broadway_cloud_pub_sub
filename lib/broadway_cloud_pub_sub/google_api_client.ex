@@ -92,10 +92,16 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   defp wrap_received_messages({:ok, %{receivedMessages: received_messages}}, ack_ref)
        when is_list(received_messages) do
-    Enum.map(received_messages, fn received_message ->
+    Enum.map(received_messages, fn %{message: message, ackId: ack_id} ->
+      {data, metadata} =
+        message
+        |> decode_message()
+        |> Map.pop(:data)
+
       %Message{
-        data: decode_message(received_message.message),
-        acknowledger: {__MODULE__, ack_ref, received_message.ackId}
+        data: data,
+        metadata: metadata,
+        acknowledger: {__MODULE__, ack_ref, ack_id}
       }
     end)
   end

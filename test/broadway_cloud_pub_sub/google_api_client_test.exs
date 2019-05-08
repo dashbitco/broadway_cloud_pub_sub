@@ -13,14 +13,21 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         "ackId": "1",
         "message": {
           "data": "TWVzc2FnZTE=",
-          "messageId": "19917247034"
+          "messageId": "19917247034",
+          "attributes": {
+            "foo": "bar",
+            "qux": ""
+          },
+          "publishTime": "2014-02-14T00:00:01Z"
         }
       },
       {
         "ackId": "2",
         "message": {
           "data": "TWVzc2FnZTI=",
-          "messageId": "19917247035"
+          "messageId": "19917247035",
+          "attributes": {},
+          "publishTime": "2014-02-14T00:00:01Z"
         }
       }
     ]
@@ -131,17 +138,26 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       }
     end
 
-    test "returns a list of Broadway.Message with :data and :acknowledger set", %{opts: base_opts} do
+    test "returns a list of Broadway.Message with :data, :metadata, and :acknowledger set", %{
+      opts: base_opts
+    } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
       [message1, message2] = GoogleApiClient.receive_messages(10, opts)
 
-      assert %Message{
-               data: %GoogleApi.PubSub.V1.Model.PubsubMessage{data: "Message1"}
-             } = message1
+      assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
+
+      assert message1.metadata.messageId == "19917247034"
+
+      assert %{
+               "foo" => "bar",
+               "qux" => ""
+             } = message1.metadata.attributes
 
       assert message1.acknowledger == {GoogleApiClient, opts.ack_ref, "1"}
 
-      assert message2.data.data == "Message2"
+      assert message2.data == "Message2"
+      assert message2.metadata.messageId == "19917247035"
+      assert message2.metadata.attributes == %{}
     end
 
     test "if the request fails, returns an empty list and log the error", %{
