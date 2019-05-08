@@ -96,6 +96,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       {data, metadata} =
         message
         |> decode_message()
+        |> Map.from_struct()
         |> Map.pop(:data)
 
       %Message{
