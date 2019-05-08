@@ -29,6 +29,17 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
           "attributes": {},
           "publishTime": "2014-02-14T00:00:01Z"
         }
+      },
+      {
+        "ackId": "3",
+        "message": {
+          "data": null,
+          "messageId": "19917247036",
+          "attributes": {
+            "number": "three"
+          },
+          "publishTime": "2014-02-14T00:00:02Z"
+        }
       }
     ]
   }
@@ -142,7 +153,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       opts: base_opts
     } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
-      [message1, message2] = GoogleApiClient.receive_messages(10, opts)
+      [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -158,6 +169,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert message2.data == "Message2"
       assert message2.metadata.messageId == "19917247035"
       assert message2.metadata.attributes == %{}
+
+      assert %Message{data: nil} = message3
+
+      assert %{
+               "number" => "three"
+             } = message3.metadata.attributes
     end
 
     test "if the request fails, returns an empty list and log the error", %{
