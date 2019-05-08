@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2019-05-08
+
+### Changed
+- **BREAKING:** The PubsubMessage struct now gets unpacked into the `%Broadway.Message{}` received in your pipeline.  If you were using `message.data.data` before, you can now use `message.data`. Additional properties from the PubsubMessage can be found in the message metadata, for instance: `message.metadata.attributes` or `message.metadata.messageId`.
+- Requires `:broadway ~> 0.3.0`
+
 ## [0.1.3] - 2019-05-06
 
 ### Changed
@@ -34,7 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
 
 
-[Unreleased]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.3...v0.3.0
 [0.1.3]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mcrumm/broadway_cloud_pub_sub/compare/v0.1.0...v0.1.1
