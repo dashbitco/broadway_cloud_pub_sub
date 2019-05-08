@@ -22,7 +22,7 @@ library of your choice (defaults to `:goth`):
 ```elixir
 def deps do
   [
-    {:broadway_cloud_pub_sub, "~> 0.1.0"},
+    {:broadway_cloud_pub_sub, "~> 0.3.0"},
     {:goth, "~> 0.11"}
   ]
 end
@@ -34,7 +34,7 @@ authentication library, you may need to explicitly include an HTTP client (such 
 ```elixir
 def deps do
   [
-    {:broadway_cloud_pub_sub, "~> 0.1.0"},
+    {:broadway_cloud_pub_sub, "~> 0.3.0"},
     {:hackney, "~> 1.9"}
   ]
 end
