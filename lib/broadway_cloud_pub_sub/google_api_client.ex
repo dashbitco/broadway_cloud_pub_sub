@@ -116,6 +116,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     []
   end
 
+  defp decode_message(%PubsubMessage{data: nil} = message), do: message
+
   defp decode_message(%PubsubMessage{data: encoded_data} = message) do
     data = Base.decode64!(encoded_data)
 
