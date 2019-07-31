@@ -21,7 +21,7 @@ defmodule BroadwayCloudPubSub.Producer do
       messages. Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs. Default
       is `GoogleApiClient`.
-      * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
+    * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
     * `:token_module` - Optional. A module that implements the `BroadwayCloudPubSub.Token`
        behaviour. This module is responsible for fetching an access token for Google
