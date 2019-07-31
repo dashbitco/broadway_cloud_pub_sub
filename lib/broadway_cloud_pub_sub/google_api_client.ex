@@ -1,7 +1,7 @@
 defmodule BroadwayCloudPubSub.GoogleApiClient do
   @moduledoc """
   Default Pub/Sub client used by `BroadwayCloudPubSub.Producer` to communicate with Google
-  Cloud Pub/Sub service. This client implements the `BroadwayCloudPubSub.PubsubClient` behaviour
+  Cloud Pub/Sub service. This client implements the `BroadwayCloudPubSub.RestClient` behaviour
   which defines callbacks for receiving and acknowledging messages.
   """
 
