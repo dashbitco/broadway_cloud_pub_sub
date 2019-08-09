@@ -8,7 +8,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   import GoogleApi.PubSub.V1.Api.Projects
   alias Broadway.{Message, Acknowledger}
   alias BroadwayCloudPubSub.Client
+  alias GoogleApi.PubSub.V1.Connection
   alias GoogleApi.PubSub.V1.Model.{PullRequest, AcknowledgeRequest, PubsubMessage}
+  alias Tesla.Adapter.Hackney
   require Logger
 
   @behaviour Client
@@ -18,10 +20,18 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
-  defp conn!(%{token: %{module: token, scope: scope}}) do
+  defp conn!(config, adapter_opts \\ []) do
+    %{adapter: adapter, token: %{module: token, scope: scope}} = config
     {:ok, token} = token.token(scope)
 
-    GoogleApi.PubSub.V1.Connection.new(token)
+    token
+    |> Connection.new()
+    |> override_tesla_adapter({adapter, adapter_opts})
+  end
+
+  defp override_tesla_adapter(client, adapter) do
+    %{adapter: adapter} = Tesla.client([], adapter)
+    %{client | adapter: adapter}
   end
 
   @impl Client
@@ -29,8 +39,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_opts} <- validate_token_opts(opts),
          {:ok, pull_request} <- validate_pull_request(opts) do
+      adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
+
       storage_ref =
         Broadway.TermStorage.put(%{
+          adapter: adapter,
           subscription: subscription,
           token: token_opts
         })
@@ -39,6 +52,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
       {:ok,
        %{
+         adapter: adapter,
          subscription: subscription,
          token: token_opts,
          pull_request: pull_request,
@@ -52,7 +66,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
     opts
-    |> conn!()
+    |> conn!(recv_timeout: :infinity)
     |> pubsub_projects_subscriptions_pull(
       opts.subscription.projects_id,
       opts.subscription.subscriptions_id,
