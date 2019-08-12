@@ -3,7 +3,7 @@ defmodule BroadwayCloudPubSub.MixProject do
 
   @version "0.3.0"
   @description "A Google Cloud Pub/Sub connector for Broadway"
-  @repo_url "https://github.com/mcrumm/broadway_cloud_pub_sub"
+  @repo_url "https://github.com/plataformatec/broadway_cloud_pub_sub"
 
   def project do
     [
