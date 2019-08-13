@@ -4,7 +4,7 @@ defmodule BroadwayCloudPubSub.Client do
 
   This module defines callbacks to normalize options and receive messages
   from a Cloud Pub/Sub topic. Modules that implement this behaviour should be passed
-  as the `:rest_client` option from `BroadwayCloudPubSub.Producer`.
+  as the `:client` option from `BroadwayCloudPubSub.Producer`.
   """
 
   alias Broadway.Message
