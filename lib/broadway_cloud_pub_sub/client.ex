@@ -1,4 +1,4 @@
-defmodule BroadwayCloudPubSub.RestClient do
+defmodule BroadwayCloudPubSub.Client do
   @moduledoc """
   A generic behaviour to implement Pub/Sub Clients for `BroadwayCloudPubSub.Producer` using the [REST API](https://cloud.google.com/pubsub/docs/reference/rest/).
 

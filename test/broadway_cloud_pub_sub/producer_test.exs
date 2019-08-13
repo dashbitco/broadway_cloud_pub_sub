@@ -17,14 +17,17 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     end
   end
 
-  defmodule FakeRestClient do
-    @behaviour BroadwayCloudPubSub.RestClient
-    @behaviour Broadway.Acknowledger
+  defmodule FakeClient do
+    alias BroadwayCloudPubSub.Client
+    alias Broadway.Acknowledger
 
-    @impl true
+    @behaviour Client
+    @behaviour Acknowledger
+
+    @impl Client
     def init(opts), do: {:ok, opts}
 
-    @impl true
+    @impl Client
     def receive_messages(amount, opts) do
       messages = MessageServer.take_messages(opts[:message_server], amount)
       send(opts[:test_pid], {:messages_received, length(messages)})
@@ -39,7 +42,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       end
     end
 
-    @impl true
+    @impl Acknowledger
     def ack(_ack_ref, successful, _failed) do
       [%Message{acknowledger: {_, _, %{test_pid: test_pid}}} | _] = successful
       send(test_pid, {:messages_deleted, length(successful)})
@@ -152,7 +155,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         default: [
           module:
             {BroadwayCloudPubSub.Producer,
-             rest_client: FakeRestClient,
+             client: FakeClient,
              receive_interval: 0,
              test_pid: self(),
              message_server: message_server},

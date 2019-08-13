@@ -10,7 +10,7 @@ This project provides:
 
   * `BroadwayCloudPubSub.Producer` - A GenStage producer that continuously receives messages from
     a Pub/Sub subscription acknowledges them after being successfully processed.
-  * `BroadwayCloudPubSub.RestClient` - A generic behaviour to implement Pub/Sub clients using the [REST API](https://cloud.google.com/pubsub/docs/reference/rest/).
+  * `BroadwayCloudPubSub.Client` - A generic behaviour to implement Pub/Sub clients.
   * `BroadwayCloudPubSub.GoogleApiClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
   * `BroadwayCloudPubSub.Token` - A generic behaviour to implement token authentication for Pub/Sub clients.
   * `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
