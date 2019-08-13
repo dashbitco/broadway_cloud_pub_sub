@@ -18,8 +18,7 @@ This project provides:
 
 ## Installation
 
-Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`, along with the authentication
-library of your choice (defaults to `:goth`):
+Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -29,18 +28,7 @@ def deps do
   ]
 end
 ```
-
-By default, `:goth` will include `:hackney` as its HTTP client. If you choose to use an alternative
-authentication library, you may need to explicitly include an HTTP client (such as `:hackney`):
-
-```elixir
-def deps do
-  [
-    {:broadway_cloud_pub_sub, "~> 0.3.0"},
-    {:hackney, "~> 1.9"}
-  ]
-end
-```
+> Note the [goth](https://hexdocs.pm/goth) package, which handles Google Authentication, is required for the default token implementation.
 
 ## Usage
 
@@ -60,6 +48,18 @@ Broadway.start_link(
 )
 ```
 
-For more information, please see the docs for [Broadway](https://hexdocs.pm/broadway).
+## License
 
-There is also an example app available at: [https://github.com/mcrumm/broadway_cloud_pub_sub_example](https://github.com/mcrumm/broadway_cloud_pub_sub_example)
+Copyright 2019 Plataformatec
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
