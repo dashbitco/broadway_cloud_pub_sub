@@ -143,6 +143,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       %{
         pid: test_pid,
         opts: [
+          __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
           token_module: FakeToken
         ]
@@ -235,6 +236,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       %{
         pid: test_pid,
         opts: [
+          __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
           token_module: FakeToken
         ]
