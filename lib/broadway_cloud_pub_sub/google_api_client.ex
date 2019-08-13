@@ -1,16 +1,17 @@
 defmodule BroadwayCloudPubSub.GoogleApiClient do
   @moduledoc """
   Default Pub/Sub client used by `BroadwayCloudPubSub.Producer` to communicate with Google
-  Cloud Pub/Sub service. This client implements the `BroadwayCloudPubSub.RestClient` behaviour
+  Cloud Pub/Sub service. This client implements the `BroadwayCloudPubSub.Client` behaviour
   which defines callbacks for receiving and acknowledging messages.
   """
 
   import GoogleApi.PubSub.V1.Api.Projects
   alias Broadway.{Message, Acknowledger}
+  alias BroadwayCloudPubSub.Client
   alias GoogleApi.PubSub.V1.Model.{PullRequest, AcknowledgeRequest, PubsubMessage}
   require Logger
 
-  @behaviour BroadwayCloudPubSub.RestClient
+  @behaviour Client
   @behaviour Acknowledger
 
   @default_max_number_of_messages 10
@@ -23,7 +24,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     GoogleApi.PubSub.V1.Connection.new(token)
   end
 
-  @impl true
+  @impl Client
   def init(opts) do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_opts} <- validate_token_opts(opts),
@@ -46,7 +47,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     end
   end
 
-  @impl true
+  @impl Client
   def receive_messages(demand, opts) do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
@@ -60,7 +61,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     |> wrap_received_messages(opts.ack_ref)
   end
 
-  @impl true
+  @impl Acknowledger
   def ack(ack_ref, successful, _failed) do
     successful
     |> acknowledge_messages(ack_ref)

@@ -16,7 +16,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   ## Additional options
 
-    * `:rest_client` - Optional. A module that implements the `BroadwayCloudPubSub.RestClient`
+    * `:client` - Optional. A module that implements the `BroadwayCloudPubSub.Client`
       behaviour. This module is responsible for fetching and acknowledging the
       messages. Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs. Default
@@ -55,7 +55,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   @impl true
   def init(opts) do
-    client = opts[:rest_client] || BroadwayCloudPubSub.GoogleApiClient
+    client = opts[:client] || BroadwayCloudPubSub.GoogleApiClient
     receive_interval = opts[:receive_interval] || @default_receive_interval
     token_module = opts[:token_module] || BroadwayCloudPubSub.GothToken
     scope = opts[:scope] || @default_scope
@@ -70,7 +70,7 @@ defmodule BroadwayCloudPubSub.Producer do
            demand: 0,
            receive_timer: nil,
            receive_interval: receive_interval,
-           rest_client: {client, opts},
+           client: {client, opts},
            token_module: token_module,
            scope: scope
          }}
@@ -111,7 +111,7 @@ defmodule BroadwayCloudPubSub.Producer do
   end
 
   defp receive_messages_from_pubsub(state, total_demand) do
-    %{rest_client: {client, opts}} = state
+    %{client: {client, opts}} = state
     client.receive_messages(total_demand, opts)
   end
 
