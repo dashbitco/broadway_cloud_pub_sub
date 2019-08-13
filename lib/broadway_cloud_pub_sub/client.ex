@@ -1,6 +1,6 @@
 defmodule BroadwayCloudPubSub.Client do
   @moduledoc """
-  A generic behaviour to implement Pub/Sub Clients for `BroadwayCloudPubSub.Producer` using the [REST API](https://cloud.google.com/pubsub/docs/reference/rest/).
+  A generic behaviour to implement Pub/Sub Clients for `BroadwayCloudPubSub.Producer`.
 
   This module defines callbacks to normalize options and receive messages
   from a Cloud Pub/Sub topic. Modules that implement this behaviour should be passed
