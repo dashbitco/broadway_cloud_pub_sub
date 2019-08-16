@@ -37,7 +37,6 @@ defmodule BroadwayCloudPubSub.MixProject do
       {:tesla, "~> 1.2.0"},
       {:hackney, "~> 1.6"},
       {:goth, "~> 0.6", optional: true},
-      {:uuid, "~> 1.0", only: :test},
       {:junit_formatter, "~> 3.0", only: [:test]},
       {:ex_doc, ">= 0.19.0", only: :docs}
     ]

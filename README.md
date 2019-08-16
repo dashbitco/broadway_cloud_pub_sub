@@ -14,6 +14,7 @@ This project provides:
   * `BroadwayCloudPubSub.GoogleApiClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
   * `BroadwayCloudPubSub.Token` - A generic behaviour to implement token authentication for Pub/Sub clients.
   * `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
+  * `BroadwayCloudPubSub.DummyToken` - A token provider that generates fake tokens, used mostly for testing.
 
 
 ## Installation

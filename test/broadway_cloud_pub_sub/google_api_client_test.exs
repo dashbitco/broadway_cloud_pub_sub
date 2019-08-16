@@ -3,7 +3,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
   import ExUnit.CaptureLog
 
-  alias BroadwayCloudPubSub.{GoogleApiClient, FakeToken}
+  alias BroadwayCloudPubSub.{GoogleApiClient, DummyToken}
   alias Broadway.Message
 
   @pull_response """
@@ -145,7 +145,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_module: FakeToken
+          token_module: DummyToken
         ]
       }
     end
@@ -238,7 +238,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_module: FakeToken
+          token_module: DummyToken
         ]
       }
     end
