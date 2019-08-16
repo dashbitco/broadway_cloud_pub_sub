@@ -21,8 +21,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
   defp conn!(config, adapter_opts \\ []) do
-    %{adapter: adapter, token: %{module: token, scope: scope}} = config
-    {:ok, token} = token.token(scope)
+    %{adapter: adapter, token_generator: {mod, fun, args}} = config
+
+    {:ok, token} = apply(mod, fun, args)
 
     token
     |> Connection.new()
@@ -37,7 +38,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   @impl Client
   def init(opts) do
     with {:ok, subscription} <- validate_subscription(opts),
-         {:ok, token_opts} <- validate_token_opts(opts),
+         {:ok, token_generator} <- validate_token_opts(opts),
          {:ok, pull_request} <- validate_pull_request(opts) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
 
@@ -45,7 +46,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
         Broadway.TermStorage.put(%{
           adapter: adapter,
           subscription: subscription,
-          token: token_opts
+          token_generator: token_generator
         })
 
       ack_ref = {__MODULE__, storage_ref}
@@ -54,7 +55,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
        %{
          adapter: adapter,
          subscription: subscription,
-         token: token_opts,
+         token_generator: token_generator,
          pull_request: pull_request,
          ack_ref: ack_ref
        }}
@@ -154,6 +155,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     validate_option(key, opts[key] || default)
   end
 
+  defp validate_option(:token_generator, value)
+       when not is_tuple(value) or tuple_size(value) != 3,
+       do: validation_error(:token_generator, "an MFArgs tuple", value)
+
+  defp validate_option(:token_generator, {m, f, a})
+       when not is_atom(m) or not is_atom(f) or not is_list(a),
+       do: validation_error(:token_generator, "an MFArgs tuple", {m, f, a})
+
   defp validate_option(:token_module, value) when not is_atom(value),
     do: validation_error(:token_module, "an atom", value)
 
@@ -190,9 +199,25 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   end
 
   defp validate_token_opts(opts) do
+    with {:token_generator, :error} <- {:token_generator, Keyword.fetch(opts, :token_generator)},
+         {:token_module, :error} <- {:token_module, Keyword.fetch(opts, :token_module)} do
+      validate_scope(opts)
+    else
+      {:token_generator, _} -> validate(opts, :token_generator)
+      {:token_module, _} -> validate_token_module(opts)
+    end
+  end
+
+  defp validate_token_module(opts) do
     with {:ok, token_module} <- validate(opts, :token_module, BroadwayCloudPubSub.GothToken),
          {:ok, scope} <- validate(opts, :scope, @default_scope) do
-      {:ok, %{module: token_module, scope: scope}}
+      {:ok, {token_module, :token, [scope]}}
+    end
+  end
+
+  defp validate_scope(opts) do
+    with {:ok, scope} <- validate(opts, :scope, @default_scope) do
+      {:ok, {Goth.Token, :for_scope, [scope]}}
     end
   end
 

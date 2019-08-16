@@ -3,7 +3,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
   import ExUnit.CaptureLog
 
-  alias BroadwayCloudPubSub.{GoogleApiClient, FakeToken}
+  alias BroadwayCloudPubSub.GoogleApiClient
   alias Broadway.Message
 
   @pull_response """
@@ -127,6 +127,80 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       assert message == "expected :max_number_of_messages to be a positive integer, got: :an_atom"
     end
+
+    test ":scope should be a string" do
+      opts = [subscription: "projects/foo/subscriptions/bar"]
+
+      {:ok, result} = opts |> Keyword.put(:scope, "https://example.com") |> GoogleApiClient.init()
+
+      assert {_, _, ["https://example.com"]} = result.token_generator
+
+      {:error, message} = opts |> Keyword.put(:scope, :an_atom) |> GoogleApiClient.init()
+
+      assert message == "expected :scope to be a non empty string, got: :an_atom"
+
+      {:error, message} = opts |> Keyword.put(:scope, 1) |> GoogleApiClient.init()
+
+      assert message == "expected :scope to be a non empty string, got: 1"
+    end
+
+    test ":token_generator defaults to Goth.Token with default scope" do
+      opts = [subscription: "projects/foo/subscriptions/bar"]
+
+      {:ok, result} = GoogleApiClient.init(opts)
+
+      assert result.token_generator ==
+               {Goth.Token, :for_scope, ["https://www.googleapis.com/auth/pubsub"]}
+    end
+
+    test ":token_generator should be an MFArgs tuple" do
+      opts = [subscription: "projects/foo/subscriptions/bar"]
+
+      token_generator = {Token, :fetch, []}
+
+      {:ok, result} =
+        opts
+        |> Keyword.put(:token_generator, token_generator)
+        |> GoogleApiClient.init()
+
+      assert result.token_generator == token_generator
+
+      {:error, message} =
+        opts
+        |> Keyword.put(:token_generator, {1, 1, 1})
+        |> GoogleApiClient.init()
+
+      assert message == "expected :token_generator to be an MFArgs tuple, got: {1, 1, 1}"
+
+      {:error, message} =
+        opts
+        |> Keyword.put(:token_generator, SomeModule)
+        |> GoogleApiClient.init()
+
+      assert message == "expected :token_generator to be an MFArgs tuple, got: SomeModule"
+    end
+
+    test ":token_generator supercedes :scope validation" do
+      opts = [subscription: "projects/foo/subscriptions/bar"]
+
+      assert {:ok, result} =
+               opts
+               |> Keyword.put(:scope, :an_invalid_scope)
+               |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
+               |> GoogleApiClient.init()
+    end
+
+    test "deprecated :token_module initializes as :token_generator" do
+      opts = [subscription: "projects/foo/subscriptions/bar"]
+
+      {:ok, result} =
+        opts
+        |> Keyword.put(:token_module, __MODULE__)
+        |> GoogleApiClient.init()
+
+      assert result.token_generator ==
+               {__MODULE__, :token, ["https://www.googleapis.com/auth/pubsub"]}
+    end
   end
 
   describe "receive_messages/2" do
@@ -145,7 +219,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_module: FakeToken
+          token_generator: {__MODULE__, :generate_token, []}
         ]
       }
     end
@@ -238,7 +312,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_module: FakeToken
+          token_generator: {__MODULE__, :generate_token, []}
         ]
       }
     end
@@ -306,4 +380,6 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
              end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub. Reason: "
     end
   end
+
+  def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
 end
