@@ -25,7 +25,7 @@ Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`:
 def deps do
   [
     {:broadway_cloud_pub_sub, "~> 0.3.0"},
-    {:goth, "~> 0.11"}
+    {:goth, "~> 1.0"}
   ]
 end
 ```
