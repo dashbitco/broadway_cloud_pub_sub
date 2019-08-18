@@ -153,7 +153,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
                {Goth.Token, :for_scope, ["https://www.googleapis.com/auth/pubsub"]}
     end
 
-    test ":token_generator should be an MFArgs tuple" do
+    test ":token_generator should be a tuple {Mod, Fun, Args}" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
       token_generator = {Token, :fetch, []}
@@ -170,14 +170,15 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         |> Keyword.put(:token_generator, {1, 1, 1})
         |> GoogleApiClient.init()
 
-      assert message == "expected :token_generator to be an MFArgs tuple, got: {1, 1, 1}"
+      assert message == "expected :token_generator to be a tuple {Mod, Fun, Args}, got: {1, 1, 1}"
 
       {:error, message} =
         opts
         |> Keyword.put(:token_generator, SomeModule)
         |> GoogleApiClient.init()
 
-      assert message == "expected :token_generator to be an MFArgs tuple, got: SomeModule"
+      assert message ==
+               "expected :token_generator to be a tuple {Mod, Fun, Args}, got: SomeModule"
     end
 
     test ":token_generator supercedes :scope validation" do
@@ -188,18 +189,6 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
                |> Keyword.put(:scope, :an_invalid_scope)
                |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
                |> GoogleApiClient.init()
-    end
-
-    test "deprecated :token_module initializes as :token_generator" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      {:ok, result} =
-        opts
-        |> Keyword.put(:token_module, __MODULE__)
-        |> GoogleApiClient.init()
-
-      assert result.token_generator ==
-               {__MODULE__, :token, ["https://www.googleapis.com/auth/pubsub"]}
     end
   end
 
