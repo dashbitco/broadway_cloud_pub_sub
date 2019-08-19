@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2019-08-19
+
+### Changed
+
+- Move to Plataformatec GitHub organization and become an official Broadway connector
+
+- Rename behaviour `RestClient` to `Client` (#23)
+
+- Use hackney as the default adapter (#20)
+
+- Require Broadway 0.4.x and (optionally) Goth 1.x (#26)
+
+- Replace `:token_module` option with `:token_generator` (#29)
+
+- Hide `handle_receive_messages` function that was accidentally made public
+
 ## [0.3.0] - 2019-05-08
 
 ### Changed
@@ -40,7 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
 
 
-[Unreleased]: https://github.com/plataformatec/broadway_cloud_pub_sub/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/plataformatec/broadway_cloud_pub_sub/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/plataformatec/broadway_cloud_pub_sub/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/plataformatec/broadway_cloud_pub_sub/compare/v0.1.3...v0.3.0
 [0.1.3]: https://github.com/plataformatec/broadway_cloud_pub_sub/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/plataformatec/broadway_cloud_pub_sub/compare/v0.1.1...v0.1.2
