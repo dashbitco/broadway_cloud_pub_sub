@@ -144,13 +144,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert message == "expected :scope to be a non empty string, got: 1"
     end
 
-    test ":token_generator defaults to Goth.Token with default scope" do
+    test ":token_generator defaults to using Goth with default scope" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
       {:ok, result} = GoogleApiClient.init(opts)
 
       assert result.token_generator ==
-               {Goth.Token, :for_scope, ["https://www.googleapis.com/auth/pubsub"]}
+               {BroadwayCloudPubSub.GoogleApiClient, :generate_goth_token,
+                ["https://www.googleapis.com/auth/pubsub"]}
     end
 
     test ":token_generator should be a tuple {Mod, Fun, Args}" do

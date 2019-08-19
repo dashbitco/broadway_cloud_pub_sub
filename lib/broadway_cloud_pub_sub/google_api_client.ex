@@ -205,7 +205,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp validate_scope(opts) do
     with {:ok, scope} <- validate(opts, :scope, @default_scope) do
       ensure_goth_loaded()
-      {:ok, {Goth.Token, :for_scope, [scope]}}
+      {:ok, {__MODULE__, :generate_goth_token, [scope]}}
     end
   end
 
@@ -250,5 +250,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   defp validate_sub_parts(_, subscription) do
     validation_error(:subscription, "an valid subscription name", subscription)
+  end
+
+  @doc false
+  def generate_goth_token(scope) do
+    with {:ok, %{token: token}} <- Goth.Token.for_scope(scope) do
+      {:ok, token}
+    end
   end
 end
