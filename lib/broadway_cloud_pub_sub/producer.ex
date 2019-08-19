@@ -25,8 +25,8 @@ defmodule BroadwayCloudPubSub.Producer do
        Note: The `:scope` option only applies to the default token generator.
 
     * `:token_generator` - Optional. An MFArgs tuple that will be called before each request
-      to fetch an authentication token. It should return `{:ok, String.t()} | :error`.
-      Default is `{Goth.Token, :for_scope, ["https://www.googleapis.com/auth/pubsub"]}`.
+      to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
+      Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
 
   ## Additional options
 
