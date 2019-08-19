@@ -204,7 +204,34 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   defp validate_scope(opts) do
     with {:ok, scope} <- validate(opts, :scope, @default_scope) do
+      ensure_goth_loaded()
       {:ok, {Goth.Token, :for_scope, [scope]}}
+    end
+  end
+
+  defp ensure_goth_loaded() do
+    unless Code.ensure_loaded?(Goth.Token) do
+      Logger.error("""
+      the default authentication token generator uses the Goth library but it's not available
+
+      Add goth to your dependencies:
+
+          defp deps() do
+            {:goth, "~> 1.0"}
+          end
+
+      Or provide your own token generator:
+
+          Broadway.start_link(
+            producers: [
+              default: [
+                module: {BroadwayCloudPubSub.Producer,
+                  token_generator: {MyGenerator, :generate, ["foo"]}
+                }
+              ]
+            ]
+          )
+      """)
     end
   end
 
