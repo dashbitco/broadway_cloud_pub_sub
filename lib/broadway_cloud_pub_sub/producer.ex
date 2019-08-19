@@ -97,7 +97,7 @@ defmodule BroadwayCloudPubSub.Producer do
     {:noreply, [], state}
   end
 
-  def handle_receive_messages(%{receive_timer: nil, demand: demand} = state) when demand > 0 do
+  defp handle_receive_messages(%{receive_timer: nil, demand: demand} = state) when demand > 0 do
     messages = receive_messages_from_pubsub(state, demand)
     new_demand = demand - length(messages)
 
@@ -111,7 +111,7 @@ defmodule BroadwayCloudPubSub.Producer do
     {:noreply, messages, %{state | demand: new_demand, receive_timer: receive_timer}}
   end
 
-  def handle_receive_messages(state) do
+  defp handle_receive_messages(state) do
     {:noreply, [], state}
   end
 
