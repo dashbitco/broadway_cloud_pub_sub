@@ -12,8 +12,6 @@ This project provides:
     a Pub/Sub subscription acknowledges them after being successfully processed.
   * `BroadwayCloudPubSub.Client` - A generic behaviour to implement Pub/Sub clients.
   * `BroadwayCloudPubSub.GoogleApiClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
-  * `BroadwayCloudPubSub.Token` - A generic behaviour to implement token authentication for Pub/Sub clients.
-  * `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
 
 
 ## Installation
@@ -28,7 +26,7 @@ def deps do
   ]
 end
 ```
-> Note the [goth](https://hexdocs.pm/goth) package, which handles Google Authentication, is required for the default token implementation.
+> Note the [goth](https://hexdocs.pm/goth) package, which handles Google Authentication, is required for the default token generator.
 
 ## Usage
 

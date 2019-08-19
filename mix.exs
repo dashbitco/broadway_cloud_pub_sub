@@ -36,7 +36,6 @@ defmodule BroadwayCloudPubSub.MixProject do
       {:google_api_pub_sub, "~> 0.11"},
       {:hackney, "~> 1.6"},
       {:goth, "~> 1.0", optional: true},
-      {:uuid, "~> 1.0", only: :test},
       {:junit_formatter, "~> 3.0", only: [:test]},
       {:ex_doc, ">= 0.19.0", only: :docs}
     ]

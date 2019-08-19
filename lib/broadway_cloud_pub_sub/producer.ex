@@ -1,9 +1,13 @@
 defmodule BroadwayCloudPubSub.Producer do
   @moduledoc """
   A GenStage producer that continuously receives messages from a Google Cloud Pub/Sub
-  queue and acknowledges them after being successfully processed.
+  topic and acknowledges them after being successfully processed.
 
-  ## Options using GoogleApiClient (Default)
+  By default this producer uses `BroadwayCloudPubSub.GoogleApiClient` to talk to Cloud
+  Pub/Sub, but you can provide your client by implementing the `BroadwayCloudPubSub.Client`
+  behaviour.
+
+  ## Options using `BroadwayCloudPubSub.GoogleApiClient`
     * `:subscription` - Required. The name of the subscription.
       Example: "projects/my-project/subscriptions/my-subscription"
     * `:max_number_of_messages` - Optional. The maximum number of messages to be fetched
@@ -12,9 +16,16 @@ defmodule BroadwayCloudPubSub.Producer do
       even if it there are no messages available to return in the Pull response. Otherwise, the system
       may wait (for a bounded amount of time) until at least one message is available, rather than
       returning no messages. Default is `nil`.
-
+    * `:scope` - Optional. A string representing the scope or scopes to use when fetching
+       an access token. Default is `"https://www.googleapis.com/auth/pubsub"`.
+       Note: The `:scope` option only applies to the default token generator.
+    * `:token_generator` - Optional. An MFArgs tuple that will be called before each request
+      to fetch an authentication token. It should return `{:ok, String.t()} | :error`.
+      Default is `{Goth.Token, :for_scope, ["https://www.googleapis.com/auth/pubsub"]}`.
 
   ## Additional options
+
+  These options applies to all producers, regardless of client implementation:
 
     * `:client` - Optional. A module that implements the `BroadwayCloudPubSub.Client`
       behaviour. This module is responsible for fetching and acknowledging the
@@ -23,12 +34,6 @@ defmodule BroadwayCloudPubSub.Producer do
       is `GoogleApiClient`.
     * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
-    * `:token_module` - Optional. A module that implements the `BroadwayCloudPubSub.Token`
-       behaviour. This module is responsible for fetching an access token for Google
-       Cloud Pub/Sub. Default is `GothToken`.
-    * `:scope` - Optional. A string representing the scope or scopes to use when fetching
-       an access token. Default is `"https://www.googleapis.com/auth/pubsub"`
-
 
   ### Example
 
@@ -51,14 +56,10 @@ defmodule BroadwayCloudPubSub.Producer do
 
   @default_receive_interval 5000
 
-  @default_scope "https://www.googleapis.com/auth/pubsub"
-
   @impl true
   def init(opts) do
     client = opts[:client] || BroadwayCloudPubSub.GoogleApiClient
     receive_interval = opts[:receive_interval] || @default_receive_interval
-    token_module = opts[:token_module] || BroadwayCloudPubSub.GothToken
-    scope = opts[:scope] || @default_scope
 
     case client.init(opts) do
       {:error, message} ->
@@ -70,9 +71,7 @@ defmodule BroadwayCloudPubSub.Producer do
            demand: 0,
            receive_timer: nil,
            receive_interval: receive_interval,
-           client: {client, opts},
-           token_module: token_module,
-           scope: scope
+           client: {client, opts}
          }}
     end
   end
