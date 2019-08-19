@@ -8,17 +8,22 @@ defmodule BroadwayCloudPubSub.Producer do
   behaviour.
 
   ## Options using `BroadwayCloudPubSub.GoogleApiClient`
+
     * `:subscription` - Required. The name of the subscription.
       Example: "projects/my-project/subscriptions/my-subscription"
+
     * `:max_number_of_messages` - Optional. The maximum number of messages to be fetched
       per request. Default is `10`.
+
     * `:return_immediately` - Optional. If this field set to true, the system will respond immediately
       even if it there are no messages available to return in the Pull response. Otherwise, the system
       may wait (for a bounded amount of time) until at least one message is available, rather than
       returning no messages. Default is `nil`.
+
     * `:scope` - Optional. A string representing the scope or scopes to use when fetching
        an access token. Default is `"https://www.googleapis.com/auth/pubsub"`.
        Note: The `:scope` option only applies to the default token generator.
+
     * `:token_generator` - Optional. An MFArgs tuple that will be called before each request
       to fetch an authentication token. It should return `{:ok, String.t()} | :error`.
       Default is `{Goth.Token, :for_scope, ["https://www.googleapis.com/auth/pubsub"]}`.
@@ -31,7 +36,8 @@ defmodule BroadwayCloudPubSub.Producer do
       behaviour. This module is responsible for fetching and acknowledging the
       messages. Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs. Default
-      is `GoogleApiClient`.
+      is `BroadwayCloudPubSub.GoogleApiClient`.
+
     * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
 
