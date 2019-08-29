@@ -21,7 +21,7 @@ Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:broadway_cloud_pub_sub, "~> 0.3.0"},
+    {:broadway_cloud_pub_sub, "~> 0.4.0"},
     {:goth, "~> 1.0"}
   ]
 end
