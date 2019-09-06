@@ -5,11 +5,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   which defines callbacks for receiving and acknowledging messages.
   """
 
-  import GoogleApi.PubSub.V1.Api.Projects
+  alias GoogleApi.PubSub.V1.Api.Projects
   alias Broadway.{Message, Acknowledger}
   alias BroadwayCloudPubSub.Client
   alias GoogleApi.PubSub.V1.Connection
-  alias GoogleApi.PubSub.V1.Model.{PullRequest, AcknowledgeRequest, PubsubMessage}
+  alias GoogleApi.PubSub.V1.Model.{PullRequest, AcknowledgeRequest}
   alias Tesla.Adapter.Hackney
   require Logger
 
@@ -68,7 +68,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
     opts
     |> conn!(recv_timeout: :infinity)
-    |> pubsub_projects_subscriptions_pull(
+    |> Projects.pubsub_projects_subscriptions_pull(
       opts.subscription.projects_id,
       opts.subscription.subscriptions_id,
       body: pull_request
@@ -91,7 +91,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
     opts
     |> conn!()
-    |> pubsub_projects_subscriptions_acknowledge(
+    |> Projects.pubsub_projects_subscriptions_acknowledge(
       opts.subscription.projects_id,
       opts.subscription.subscriptions_id,
       body: %AcknowledgeRequest{ackIds: ack_ids}
@@ -106,38 +106,56 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     :ok
   end
 
-  defp wrap_received_messages({:ok, %{receivedMessages: received_messages}}, ack_ref)
-       when is_list(received_messages) do
-    Enum.map(received_messages, fn %{message: message, ackId: ack_id} ->
-      {data, metadata} =
-        message
-        |> decode_message()
-        |> Map.from_struct()
-        |> Map.pop(:data)
-
-      %Message{
-        data: data,
-        metadata: metadata,
-        acknowledger: {__MODULE__, ack_ref, ack_id}
-      }
-    end)
+  def wrap_received_messages({:ok, %{receivedMessages: received_messages}}, ack_ref)
+      when is_list(received_messages) do
+    Enum.map(
+      received_messages,
+      fn
+        %{message: message, ackId: ack_id} -> to_message(message, ack_id, ack_ref)
+        %{"message" => message, "ackId" => ack_id} -> to_message(message, ack_id, ack_ref)
+      end
+    )
   end
 
-  defp wrap_received_messages({:ok, _}, _ack_ref) do
+  def wrap_received_messages({:ok, _}, _ack_ref) do
     []
   end
 
-  defp wrap_received_messages({:error, reason}, _) do
+  def wrap_received_messages({:error, reason}, _) do
     Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect(reason)}")
     []
   end
 
-  defp decode_message(%PubsubMessage{data: nil} = message), do: message
+  defp to_message(message = %{"data" => nil}, ack_id, ack_ref) do
+    no_data_message(message, ack_id, ack_ref)
+  end
 
-  defp decode_message(%PubsubMessage{data: encoded_data} = message) do
-    data = Base.decode64!(encoded_data)
+  defp to_message(message = %{data: nil}, ack_id, ack_ref) do
+    no_data_message(message, ack_id, ack_ref)
+  end
 
-    put_in(message.data, data)
+  defp to_message(message = %{data: data}, ack_id, ack_ref) do
+    %Message{
+      data: Base.decode64!(data),
+      metadata: Map.take(message, [:attributes, :messageId, :publishTime]),
+      acknowledger: {__MODULE__, ack_ref, ack_id}
+    }
+  end
+
+  defp to_message(message = %{"data" => data}, ack_id, ack_ref) do
+    %Message{
+      data: Base.decode64!(data),
+      metadata: Map.take(message, [:attributes, :messageId, :publishTime]),
+      acknowledger: {__MODULE__, ack_ref, ack_id}
+    }
+  end
+
+  defp no_data_message(message, ack_id, ack_ref) do
+    %Message{
+      data: nil,
+      metadata: Map.take(message, [:attributes, :messageId, :publishTime]),
+      acknowledger: {__MODULE__, ack_ref, ack_id}
+    }
   end
 
   defp put_max_number_of_messages(pull_request, demand) do

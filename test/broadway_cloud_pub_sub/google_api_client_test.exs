@@ -286,6 +286,36 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
   end
 
+  describe "wrap_received_messages/2" do
+    test "allows string keys for messages" do
+      message = %{
+        "ackId" => "THE ACK ID",
+        "message" => %{
+          "attributes" => %{"space" => "vegans"},
+          "data" => "VEhJUyBJUyBBIFRFU1Q=",
+          "messageId" => "111110000222233344",
+          "publishTime" => "2019-09-05T17:41:31.520Z"
+        }
+      }
+
+      messages = {:ok, %{receivedMessages: [message]}}
+
+      result = [
+        %Broadway.Message{
+          acknowledger: {BroadwayCloudPubSub.GoogleApiClient, "Ack Ref", "THE ACK ID"},
+          batch_key: :default,
+          batch_mode: :bulk,
+          batcher: :default,
+          data: "THIS IS A TEST",
+          metadata: %{},
+          status: :ok
+        }
+      ]
+
+      assert GoogleApiClient.wrap_received_messages(messages, "Ack Ref") == result
+    end
+  end
+
   describe "ack/2" do
     setup do
       test_pid = self()
