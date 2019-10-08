@@ -151,16 +151,14 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       Forwarder,
       name: new_unique_name(),
       context: %{test_pid: self()},
-      producers: [
-        default: [
-          module:
-            {BroadwayCloudPubSub.Producer,
-             client: FakeClient,
-             receive_interval: 0,
-             test_pid: self(),
-             message_server: message_server},
-          stages: 1
-        ]
+      producer: [
+        module:
+          {BroadwayCloudPubSub.Producer,
+           client: FakeClient,
+           receive_interval: 0,
+           test_pid: self(),
+           message_server: message_server},
+        stages: 1
       ],
       processors: [
         default: [stages: 1]

@@ -219,6 +219,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
       [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
+      ack_data = %{ack_id: "1", on_failure: :ignore, on_success: :ack}
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -229,7 +230,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
                "qux" => ""
              } = message1.metadata.attributes
 
-      assert message1.acknowledger == {GoogleApiClient, opts.ack_ref, "1"}
+      assert message1.acknowledger == {GoogleApiClient, opts.ack_ref, ack_data}
 
       assert message2.data == "Message2"
       assert message2.metadata.messageId == "19917247035"
@@ -286,6 +287,59 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
   end
 
+  describe "configure/3" do
+    test "raise on unsupported configure option" do
+      assert_raise(ArgumentError, "unsupported configure option :on_other", fn ->
+        GoogleApiClient.configure(:channel, %{}, on_other: :ack)
+      end)
+    end
+
+    test "raise on unsupported on_success value" do
+      error_msg = "expected :on_success to be a valid on_success value, got: :unknown"
+
+      assert_raise(ArgumentError, error_msg, fn ->
+        GoogleApiClient.configure(:channel, %{}, on_success: :unknown)
+      end)
+    end
+
+    test "raise on unsupported on_failure value" do
+      error_msg = "expected :on_failure to be a valid on_failure value, got: :unknown"
+
+      assert_raise(ArgumentError, error_msg, fn ->
+        GoogleApiClient.configure(:channel, %{}, on_failure: :unknown)
+      end)
+    end
+
+    test "set on_success correctly" do
+      ack_data = %{ack_id: "1"}
+      expected = %{ack_id: "1", on_success: :ack}
+
+      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :ack)
+    end
+
+    test "set on_success with ignore" do
+      ack_data = %{ack_id: "1"}
+      expected = %{ack_id: "1", on_success: :ignore}
+
+      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :ignore)
+    end
+
+    test "set on_failure with deadline 0" do
+      ack_data = %{ack_id: "1"}
+      expected = %{ack_id: "1", on_failure: {:no_ack, 0}}
+
+      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_failure: :no_ack)
+    end
+
+    test "set on_failure with custom deadline" do
+      ack_data = %{ack_id: "1"}
+      expected = %{ack_id: "1", on_failure: {:no_ack, 60}}
+
+      assert {:ok, expected} ==
+               GoogleApiClient.configure(:channel, ack_data, on_failure: {:no_ack, 60})
+    end
+  end
+
   describe "ack/2" do
     setup do
       test_pid = self()
@@ -310,14 +364,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "send a projects.subscriptions.acknowledge request", %{opts: base_opts} do
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
-      GoogleApiClient.ack(
-        opts.ack_ref,
-        [
-          %Message{acknowledger: {GoogleApiClient, opts.ack_ref, "1"}, data: nil},
-          %Message{acknowledger: {GoogleApiClient, opts.ack_ref, "2"}, data: nil}
-        ],
-        []
-      )
+      messages = test_messages(opts)
+
+      GoogleApiClient.ack(opts.ack_ref, messages, [])
 
       assert_received {:http_request_called, %{body: body, url: url}}
 
@@ -325,27 +374,28 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
-    test "with no successful messages, is a no-op", %{opts: base_opts} do
+    test "with no successful messages, by default is a no-op", %{opts: base_opts} do
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
-      GoogleApiClient.ack(
-        opts.ack_ref,
-        [],
-        [
-          %Message{
-            acknowledger: {GoogleApiClient, opts.ack_ref, "1"},
-            data: nil,
-            status: {:failed, :test}
-          },
-          %Message{
-            acknowledger: {GoogleApiClient, opts.ack_ref, "2"},
-            data: nil,
-            status: {:failed, :test}
-          }
-        ]
-      )
+      messages = test_messages(opts, data: {:failed, :test})
+      GoogleApiClient.ack(opts.ack_ref, [], messages)
 
       refute_received {:http_request_called, _}
+    end
+
+    test "with no successful messages, send projects.subscriptions.modifyAckDeadline", %{
+      opts: base_opts
+    } do
+      {:ok, opts} = GoogleApiClient.init(base_opts)
+
+      messages = test_messages(opts, on_failure: {:no_ack, 0}, data: {:failed, :test})
+      GoogleApiClient.ack(opts.ack_ref, [], messages)
+
+      assert_received {:http_request_called, %{body: body, url: url}}
+      assert body == %{"ackIds" => ["1", "2"], "ackDeadlineSeconds" => 0}
+
+      assert url ==
+               "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:modifyAckDeadline"
     end
 
     test "if the request fails, returns :ok and logs the error", %{pid: pid, opts: base_opts} do
@@ -358,18 +408,34 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
+      messages = test_messages(opts)
+
       assert capture_log(fn ->
-               assert GoogleApiClient.ack(
-                        opts.ack_ref,
-                        [
-                          %Message{acknowledger: {GoogleApiClient, opts.ack_ref, "1"}, data: nil},
-                          %Message{acknowledger: {GoogleApiClient, opts.ack_ref, "2"}, data: nil}
-                        ],
-                        []
-                      ) == :ok
+               assert GoogleApiClient.ack(opts.ack_ref, messages, []) == :ok
              end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub. Reason: "
     end
   end
 
   def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
+
+  defp test_messages(client_opts, opts \\ []) do
+    data = opts[:data]
+    on_success = opts[:on_success] || :ack
+    on_failure = opts[:on_failure] || :ignore
+
+    [
+      %Message{
+        acknowledger:
+          {GoogleApiClient, client_opts.ack_ref,
+           %{ack_id: "1", on_success: on_success, on_failure: on_failure}},
+        data: data
+      },
+      %Message{
+        acknowledger:
+          {GoogleApiClient, client_opts.ack_ref,
+           %{ack_id: "2", on_success: on_success, on_failure: on_failure}},
+        data: data
+      }
+    ]
+  end
 end
