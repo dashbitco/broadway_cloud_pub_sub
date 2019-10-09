@@ -28,6 +28,14 @@ defmodule BroadwayCloudPubSub.Producer do
       to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
       Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
 
+    * `:on_success` - Optional. Configures the acking behaviour for successful messages.
+       See the "Acking" section below for all the possible values. This option can also be changed for each
+       message through `Broadway.Message.configure_ack/2`. Defaults to `:ack`.
+
+    * `:on_failure` - Optional. Configures the acking messages for failed messages. See the "Acking" section
+       below for all the possible values. This option can also be changed for each message through
+       `Broadway.Message.configure_ack/2`. Defaults to `:ignore`
+
   ## Additional options
 
   These options applies to all producers, regardless of client implementation:
@@ -56,6 +64,23 @@ defmodule BroadwayCloudPubSub.Producer do
 
   The above configuration will set up a producer that continuously receives messages
   from `"projects/my-project/subscriptions/my_subscription"` and sends them downstream.
+
+  ## Acking
+
+  You can use the `:on_success` and `:on_failure` options to control how messages are acked on PubSub.
+  By default successful messages are acked and failed messages are ignored.
+  You can set `:on_success` and `:on_failure` when starting the PubSub producer,
+  or change them for each message through `Broadway.Message.configure_ack/2`
+
+  Here is the list of all possible values supported by `:on_success` and `:on_failure`:
+
+  * `:ack` - Acknowledge the message. PubSub will mark the message as acked.
+  * `:ignore` - Don't do anything. It won't notify to PubSub, and it will apply the default deadline.
+  * `:nack` - Change the deadline to 0 seconds.
+  * `{:nack, integer}` - Change the deadline to the seconds specified.
+
+
+  Read more about modifying the deadline of the messages [in the PubSub documentation](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/modifyAckDeadline)
   """
 
   use GenStage
