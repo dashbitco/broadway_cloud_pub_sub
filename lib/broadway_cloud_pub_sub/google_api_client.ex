@@ -94,7 +94,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   end
 
   @impl Acknowledger
-  def configure(_channel, ack_data, options) do
+  def configure(_ack_ref, ack_data, options) do
     options = assert_valid_success_failure_opts!(options)
     ack_data = Map.merge(ack_data, Map.new(options))
     {:ok, ack_data}
