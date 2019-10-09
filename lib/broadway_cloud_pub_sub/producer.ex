@@ -76,8 +76,8 @@ defmodule BroadwayCloudPubSub.Producer do
 
   * `:ack` - Acknowledge the message. PubSub will mark the message as acked.
   * `:ignore` - Don't do anything. It won't notify to PubSub, and it will apply the default deadline.
-  * `:no_ack` - Change the deadline to 0 seconds.
-  * `{:no_ack, integer}` - Change the deadline to the seconds specified.
+  * `:nack` - Change the deadline to 0 seconds.
+  * `{:nack, integer}` - Change the deadline to the seconds specified.
 
 
   Read more about modifying the deadline of the messages [in the PubSub documentation](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/modifyAckDeadline)

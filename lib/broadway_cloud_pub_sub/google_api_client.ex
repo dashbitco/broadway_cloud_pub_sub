@@ -141,10 +141,10 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     )
   end
 
-  defp apply_ack_func(:no_ack, messages, opts),
-    do: apply_ack_func({:no_ack, 0}, messages, opts)
+  defp apply_ack_func(:nack, messages, opts),
+    do: apply_ack_func({:nack, 0}, messages, opts)
 
-  defp apply_ack_func({:no_ack, deadline}, messages, opts) do
+  defp apply_ack_func({:nack, deadline}, messages, opts) do
     ack_ids = Enum.map(messages, &extract_ack_id/1)
 
     opts
@@ -260,8 +260,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   defp validate_acking(:ack), do: {:ok, :ack}
   defp validate_acking(:ignore), do: {:ok, :ignore}
-  defp validate_acking(:no_ack), do: {:ok, {:no_ack, 0}}
-  defp validate_acking({:no_ack, n}) when is_integer(n) and n >= 0, do: {:ok, {:no_ack, n}}
+  defp validate_acking(:nack), do: {:ok, {:nack, 0}}
+  defp validate_acking({:nack, n}) when is_integer(n) and n >= 0, do: {:ok, {:nack, n}}
   defp validate_acking(_), do: :error
 
   defp validate_pull_request(opts) do

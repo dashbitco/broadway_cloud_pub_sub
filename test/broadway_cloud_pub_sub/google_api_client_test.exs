@@ -326,17 +326,17 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
     test "set on_failure with deadline 0" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_failure: {:no_ack, 0}}
+      expected = %{ack_id: "1", on_failure: {:nack, 0}}
 
-      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_failure: :no_ack)
+      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_failure: :nack)
     end
 
     test "set on_failure with custom deadline" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_failure: {:no_ack, 60}}
+      expected = %{ack_id: "1", on_failure: {:nack, 60}}
 
       assert {:ok, expected} ==
-               GoogleApiClient.configure(:channel, ack_data, on_failure: {:no_ack, 60})
+               GoogleApiClient.configure(:channel, ack_data, on_failure: {:nack, 60})
     end
   end
 
@@ -388,7 +388,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
-      messages = test_messages(opts, on_failure: {:no_ack, 0}, data: {:failed, :test})
+      messages = test_messages(opts, on_failure: {:nack, 0}, data: {:failed, :test})
       GoogleApiClient.ack(opts.ack_ref, [], messages)
 
       assert_received {:http_request_called, %{body: body, url: url}}
