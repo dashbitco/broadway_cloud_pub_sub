@@ -416,6 +416,36 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
   end
 
+  describe "prepare_to_connect/2" do
+    test "returns a child_spec for :hackney_pool" do
+      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, pool_size: 2)
+
+      assert name = opts[:__connection_pool__]
+      assert pool_spec == :hackney_pool.child_spec(name, max_connections: 2)
+    end
+
+    test "with extra options" do
+      pool_opts = [timeout: 20_000]
+      expected_pool_opts = Keyword.put(pool_opts, :max_connections, 5)
+      client_opts = [pool_size: 5, pool_opts: pool_opts]
+
+      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, client_opts)
+
+      assert name = opts[:__connection_pool__]
+      assert pool_spec == :hackney_pool.child_spec(name, expected_pool_opts)
+    end
+
+    test "max_connections takes precedence over pool_size" do
+      pool_opts = [timeout: 20_000, max_connections: 100]
+      client_opts = [pool_size: 5, pool_opts: pool_opts]
+
+      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, client_opts)
+
+      assert name = opts[:__connection_pool__]
+      assert pool_spec == :hackney_pool.child_spec(name, pool_opts)
+    end
+  end
+
   def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
 
   defp test_messages(client_opts, opts \\ []) do

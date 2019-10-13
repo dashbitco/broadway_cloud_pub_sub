@@ -28,9 +28,15 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
   defp conn!(config, adapter_opts \\ []) do
-    %{adapter: adapter, token_generator: {mod, fun, args}} = config
+    %{
+      adapter: adapter,
+      connection_pool: connection_pool,
+      token_generator: {mod, fun, args}
+    } = config
 
     {:ok, token} = apply(mod, fun, args)
+
+    adapter_opts = Keyword.put(adapter_opts, :pool, connection_pool)
 
     token
     |> Connection.new()
@@ -43,6 +49,20 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   end
 
   @impl Client
+  def prepare_to_connect(module, opts) do
+    pool_name = Module.concat(module, ConnectionPool)
+
+    pool_opts =
+      opts
+      |> Keyword.get(:pool_opts, [])
+      |> Keyword.put_new_lazy(:max_connections, fn -> opts[:pool_size] end)
+
+    pool_spec = :hackney_pool.child_spec(pool_name, pool_opts)
+
+    {[pool_spec], Keyword.put(opts, :__connection_pool__, pool_name)}
+  end
+
+  @impl Client
   def init(opts) do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_generator} <- validate_token_opts(opts),
@@ -50,10 +70,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
          {:ok, on_success} <- validate(opts, :on_success, :ack),
          {:ok, on_failure} <- validate(opts, :on_failure, :ignore) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
+      connection_pool = Keyword.get(opts, :__connection_pool__, :default)
 
       storage_ref =
         Broadway.TermStorage.put(%{
           adapter: adapter,
+          connection_pool: connection_pool,
           subscription: subscription,
           token_generator: token_generator
         })
@@ -63,6 +85,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       {:ok,
        %{
          adapter: adapter,
+         connection_pool: connection_pool,
          subscription: subscription,
          token_generator: token_generator,
          pull_request: pull_request,

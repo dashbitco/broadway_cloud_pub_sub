@@ -36,6 +36,9 @@ defmodule BroadwayCloudPubSub.Producer do
        below for all the possible values. This option can also be changed for each message through
        `Broadway.Message.configure_ack/2`. Defaults to `:ignore`
 
+    * `:pool_opts` - Optional. A set of additional options to override the
+       default `:hackney_pool` configuration options.
+
   ## Additional options
 
   These options applies to all producers, regardless of client implementation:
@@ -45,6 +48,9 @@ defmodule BroadwayCloudPubSub.Producer do
       messages. Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs. Default
       is `BroadwayCloudPubSub.GoogleApiClient`.
+
+    * `:pool_size` - Optional. The size of the connection pool. Default is
+       twice the number of producer stages.
 
     * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
@@ -85,11 +91,39 @@ defmodule BroadwayCloudPubSub.Producer do
 
   use GenStage
 
+  @behaviour Broadway.Producer
+
+  @default_client BroadwayCloudPubSub.GoogleApiClient
   @default_receive_interval 5000
+
+  @impl Broadway.Producer
+  def prepare_for_start(module, opts) do
+    {me, my_opts} = opts[:producer][:module]
+    client = Keyword.get(my_opts, :client, @default_client)
+
+    my_opts =
+      Keyword.put_new_lazy(my_opts, :pool_size, fn ->
+        2 * opts[:producer][:stages]
+      end)
+
+    {specs, my_opts} = prepare_to_connect(module, client, my_opts)
+
+    opts = put_in(opts, [:producer, :module], {me, my_opts})
+
+    {specs, opts}
+  end
+
+  defp prepare_to_connect(module, client, producer_opts) do
+    if Code.ensure_loaded?(client) and function_exported?(client, :prepare_to_connect, 2) do
+      client.prepare_to_connect(module, producer_opts)
+    else
+      {[], producer_opts}
+    end
+  end
 
   @impl true
   def init(opts) do
-    client = opts[:client] || BroadwayCloudPubSub.GoogleApiClient
+    client = opts[:client] || @default_client
     receive_interval = opts[:receive_interval] || @default_receive_interval
 
     case client.init(opts) do
