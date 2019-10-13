@@ -108,9 +108,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
     {specs, my_opts} = prepare_to_connect(module, client, my_opts)
 
-    opts = put_in(opts, [:producer, :module], {me, my_opts})
-
-    {specs, opts}
+    {specs, put_in(opts, [:producer, :module], {me, my_opts})}
   end
 
   defp prepare_to_connect(module, client, producer_opts) do
