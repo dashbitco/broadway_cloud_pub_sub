@@ -30,11 +30,11 @@ defmodule BroadwayCloudPubSub.Producer do
 
     * `:on_success` - Optional. Configures the acking behaviour for successful messages.
        See the "Acking" section below for all the possible values. This option can also be changed for each
-       message through `Broadway.Message.configure_ack/2`. Defaults to `:ack`.
+       message through `Broadway.Message.configure_ack/2`. Default is `:ack`.
 
     * `:on_failure` - Optional. Configures the acking messages for failed messages. See the "Acking" section
        below for all the possible values. This option can also be changed for each message through
-       `Broadway.Message.configure_ack/2`. Defaults to `:ignore`
+       `Broadway.Message.configure_ack/2`. Default is `:noop`
 
     * `:pool_opts` - Optional. A set of additional options to override the
        default `:hackney_pool` configuration options.
@@ -71,20 +71,28 @@ defmodule BroadwayCloudPubSub.Producer do
   The above configuration will set up a producer that continuously receives messages
   from `"projects/my-project/subscriptions/my_subscription"` and sends them downstream.
 
-  ## Acking
+  ## Acknowledging Messages
 
-  You can use the `:on_success` and `:on_failure` options to control how messages are acked on PubSub.
-  By default successful messages are acked and failed messages are ignored.
+  You can use the `:on_success` and `:on_failure` options to control how messages are acknowledged on PubSub.
+  By default successful messages are acknowledged and failed messages are ignored.
   You can set `:on_success` and `:on_failure` when starting the PubSub producer,
   or change them for each message through `Broadway.Message.configure_ack/2`
 
   Here is the list of all possible values supported by `:on_success` and `:on_failure`:
 
-  * `:ack` - Acknowledge the message. PubSub will mark the message as acked.
-  * `:ignore` - Don't do anything. It won't notify to PubSub, and it will apply the default deadline.
-  * `:nack` - Change the deadline to 0 seconds.
+  * `:ack` - Acknowledge the message.
+
+  * `:nack` - Change the deadline to 0 seconds. This will return the message to the
+     topic immediately, instead of waiting for the default acknowlegement deadline.
+
   * `{:nack, integer}` - Change the deadline to the seconds specified.
 
+  * `:noop` - Do nothing. The default acknowledgement deadline for the topic still applies.
+
+  * A tuple, `{Mod, Fun, Args}` - The first argument to the function will be the
+    list of messages. The function must return one of the supported acknowledgement
+    values, including another `{Mod, Fun, Args}` tuple. This allows the callback to
+    control whether or not to still acknowledge the message.
 
   Read more about modifying the deadline of the messages [in the PubSub documentation](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/modifyAckDeadline)
   """

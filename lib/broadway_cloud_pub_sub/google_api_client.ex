@@ -68,7 +68,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
          {:ok, token_generator} <- validate_token_opts(opts),
          {:ok, pull_request} <- validate_pull_request(opts),
          {:ok, on_success} <- validate(opts, :on_success, :ack),
-         {:ok, on_failure} <- validate(opts, :on_failure, :ignore) do
+         {:ok, on_failure} <- validate(opts, :on_failure, :noop) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
       connection_pool = Keyword.get(opts, :__connection_pool__, :default)
 
@@ -150,7 +150,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp ack_data_action(%{on_success: action}, :successful), do: action
   defp ack_data_action(%{on_failure: action}, :failed), do: action
 
-  defp apply_ack_func(:ignore, _messages, _opts), do: :ok
+  defp apply_ack_func(:noop, _messages, _opts), do: :ok
 
   defp apply_ack_func(:ack, messages, opts) do
     ack_ids = Enum.map(messages, &extract_ack_id/1)
@@ -177,6 +177,10 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       opts.subscription.subscriptions_id,
       body: %ModifyAckDeadlineRequest{ackDeadlineSeconds: deadline, ackIds: ack_ids}
     )
+  end
+
+  defp apply_ack_func({mod, fun, args}, messages, opts) do
+    apply_ack_func(apply(mod, fun, [messages | args]), messages, opts)
   end
 
   defp handle_acknowledged_messages(:ok), do: :ok
@@ -282,9 +286,13 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   end
 
   defp validate_acking(:ack), do: {:ok, :ack}
-  defp validate_acking(:ignore), do: {:ok, :ignore}
+  defp validate_acking(:noop), do: {:ok, :noop}
   defp validate_acking(:nack), do: {:ok, {:nack, 0}}
   defp validate_acking({:nack, n}) when is_integer(n) and n >= 0, do: {:ok, {:nack, n}}
+
+  defp validate_acking({m, f, args}) when is_atom(m) and is_atom(f) and is_list(args),
+    do: {:ok, {m, f, args}}
+
   defp validate_acking(_), do: :error
 
   defp validate_pull_request(opts) do

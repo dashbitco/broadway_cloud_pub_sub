@@ -219,7 +219,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
       [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
-      ack_data = %{ack_id: "1", on_failure: :ignore, on_success: :ack}
+      ack_data = %{ack_id: "1", on_failure: :noop, on_success: :ack}
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -317,11 +317,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :ack)
     end
 
-    test "set on_success with ignore" do
+    test "set on_success with noop" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_success: :ignore}
+      expected = %{ack_id: "1", on_success: :noop}
 
-      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :ignore)
+      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :noop)
     end
 
     test "set on_failure with deadline 0" do
@@ -451,7 +451,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
   defp test_messages(client_opts, opts \\ []) do
     data = opts[:data]
     on_success = opts[:on_success] || :ack
-    on_failure = opts[:on_failure] || :ignore
+    on_failure = opts[:on_failure] || :noop
 
     [
       %Message{
