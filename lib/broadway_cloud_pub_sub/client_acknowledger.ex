@@ -152,8 +152,12 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   def ack(ack_ref, successful, failed) do
     config = Broadway.TermStorage.get!(ack_ref)
 
-    ack_messages(successful, :on_success, config)
-    ack_messages(failed, :on_failure, config)
+    success_actions = group_actions_ack_ids(successful, :on_success, config)
+    failure_actions = group_actions_ack_ids(failed, :on_failure, config)
+
+    success_actions
+    |> Map.merge(failure_actions, fn _, a, b -> a ++ b end)
+    |> ack_messages(config)
 
     :ok
   end
@@ -173,14 +177,8 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
     end)
   end
 
-  defp ack_messages([], _key, _config), do: :ok
-
-  defp ack_messages(messages, key, config) do
-    messages
-    |> Enum.group_by(&group_acknowledger(&1, key, config), &extract_ack_id/1)
-    |> Enum.map(fn {action, ack_ids} ->
-      apply_ack_func(ack_ids, action, config)
-    end)
+  defp group_actions_ack_ids(messages, key, config) do
+    Enum.group_by(messages, &group_acknowledger(&1, key, config), &extract_ack_id/1)
   end
 
   defp group_acknowledger(%{acknowledger: {_, _, ack_data}}, key, config) do
@@ -195,21 +193,27 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
     ack_id
   end
 
-  defp apply_ack_func(:ignore, _ack_ids, _opts), do: :ok
-
-  defp apply_ack_func(:ack, ack_ids, opts) do
-    %{client: {client, client_opts}} = opts
-
-    client.acknowledge(ack_ids, client_opts)
+  defp ack_messages(actions_and_ids, config) do
+    Enum.map(actions_and_ids, fn {action, ack_ids} ->
+      apply_ack_func(action, ack_ids, config)
+    end)
   end
 
-  defp apply_ack_func(:nack, ack_ids, opts),
-    do: apply_ack_func({:nack, 0}, ack_ids, opts)
+  defp apply_ack_func(:ignore, _ack_ids, _config), do: :ok
 
-  defp apply_ack_func({:nack, deadline}, ack_ids, opts) do
-    %{client: {client, client_opts}} = opts
+  defp apply_ack_func(:ack, ack_ids, config) do
+    %__MODULE__{client: client, client_opts: opts} = config
 
-    client.put_deadline(ack_ids, deadline, client_opts)
+    client.acknowledge(ack_ids, opts)
+  end
+
+  defp apply_ack_func(:nack, ack_ids, config),
+    do: apply_ack_func({:nack, 0}, ack_ids, config)
+
+  defp apply_ack_func({:nack, deadline}, ack_ids, config) do
+    %__MODULE__{client: client, client_opts: opts} = config
+
+    client.put_deadline(ack_ids, deadline, opts)
   end
 
   defp validate(opts, key, default \\ nil) when is_list(opts) do

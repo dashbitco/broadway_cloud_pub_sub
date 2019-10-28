@@ -1,5 +1,6 @@
 defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
   use ExUnit.Case
+  alias Broadway.Message
   alias BroadwayCloudPubSub.Client
   alias BroadwayCloudPubSub.ClientAcknowledger
 
@@ -66,13 +67,13 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
     def receive_messages(_demand, _opts), do: []
 
     @impl Client
-    def acknowledge(ack_ids, opts) do
-      send(opts.test_pid, {:acknowledge, length(ack_ids)})
+    def acknowledge(ack_ids, config) do
+      send(config.test_pid, {:acknowledge, length(ack_ids)})
     end
 
     @impl Client
-    def put_deadline(ack_ids, deadline, opts) do
-      send(opts.test_pid, {{:put_deadline, deadline}, length(ack_ids)})
+    def put_deadline(ack_ids, deadline, config) do
+      send(config.test_pid, {{:put_deadline, deadline}, length(ack_ids)})
     end
   end
 
@@ -195,5 +196,96 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
       assert {:ok, expected} ==
                ClientAcknowledger.configure(:ack_ref, ack_data, on_failure: {:nack, 60})
     end
+  end
+
+  describe "ack/3" do
+    setup do
+      producer_opts = [client: CallerClient, test_pid: self()]
+
+      {:ok, producer_opts: producer_opts}
+    end
+
+    test "with defaults, only successful messages are acknowledged", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init(opts)
+
+      messages = build_messages(6, ack_ref)
+
+      {successful, failed} = Enum.split(messages, 3)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_received {:acknowledge, 3}
+    end
+
+    test "overriding default on_success", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init([on_success: :ignore] ++ opts)
+
+      messages = build_messages(6, ack_ref)
+
+      {successful, failed} = Enum.split(messages, 3)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      refute_received {:acknowledge, 3}
+    end
+
+    test "overriding default on_failure", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init([on_failure: :ack] ++ opts)
+
+      messages = build_messages(6, ack_ref)
+
+      {successful, failed} = Enum.split(messages, 3)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_received {:acknowledge, 6}
+    end
+
+    test "overriding message on_success", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init(opts)
+
+      [first | rest] = build_messages(3, ack_ref)
+
+      first = Message.configure_ack(first, on_success: :nack)
+
+      ClientAcknowledger.ack(ack_ref, [first | rest], [])
+
+      assert_received({:acknowledge, 2})
+      assert_received({{:put_deadline, 0}, 1})
+    end
+
+    test "overriding message on_failure", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init(opts)
+
+      [first | rest] = build_messages(3, ack_ref)
+
+      first = Message.configure_ack(first, on_failure: :nack)
+
+      ClientAcknowledger.ack(ack_ref, rest, [first])
+
+      assert_received({:acknowledge, 2})
+      assert_received({{:put_deadline, 0}, 1})
+    end
+
+    test "groups successful and failed messages by action", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init([on_failure: :ack] ++ opts)
+
+      messages = build_messages(6, ack_ref)
+
+      {successful, failed} = Enum.split(messages, 3)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_received({:acknowledge, 6})
+    end
+  end
+
+  defp build_messages(n, ack_ref) when is_integer(n) and n > 1 do
+    Enum.map(1..n, &build_message(&1, ack_ref))
+  end
+
+  defp build_message(data, ack_ref) do
+    acknowledger = ClientAcknowledger.acknowledger("Ack_#{inspect(data)}", ack_ref)
+    %Message{data: "Message_#{inspect(data)}", acknowledger: acknowledger}
   end
 end
