@@ -194,8 +194,10 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   end
 
   defp ack_messages(actions_and_ids, config) do
-    Enum.map(actions_and_ids, fn {action, ack_ids} ->
-      apply_ack_func(action, ack_ids, config)
+    Enum.each(actions_and_ids, fn {action, ack_ids} ->
+      ack_ids
+      |> Enum.chunk_every(3_000)
+      |> Enum.each(&apply_ack_func(action, &1, config))
     end)
   end
 
@@ -206,9 +208,6 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
 
     client.acknowledge(ack_ids, opts)
   end
-
-  defp apply_ack_func(:nack, ack_ids, config),
-    do: apply_ack_func({:nack, 0}, ack_ids, config)
 
   defp apply_ack_func({:nack, deadline}, ack_ids, config) do
     %__MODULE__{client: client, client_opts: opts} = config

@@ -73,7 +73,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
 
     @impl Client
     def put_deadline(ack_ids, deadline, config) do
-      send(config.test_pid, {{:put_deadline, deadline}, length(ack_ids)})
+      send(config.test_pid, {:put_deadline, length(ack_ids), deadline})
     end
   end
 
@@ -251,7 +251,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
       ClientAcknowledger.ack(ack_ref, [first | rest], [])
 
       assert_received({:acknowledge, 2})
-      assert_received({{:put_deadline, 0}, 1})
+      assert_received({:put_deadline, 1, 0})
     end
 
     test "overriding message on_failure", %{producer_opts: opts} do
@@ -264,7 +264,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
       ClientAcknowledger.ack(ack_ref, rest, [first])
 
       assert_received({:acknowledge, 2})
-      assert_received({{:put_deadline, 0}, 1})
+      assert_received({:put_deadline, 1, 0})
     end
 
     test "groups successful and failed messages by action", %{producer_opts: opts} do
@@ -277,6 +277,50 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
       ClientAcknowledger.ack(ack_ref, successful, failed)
 
       assert_received({:acknowledge, 6})
+    end
+
+    test "treats :nack as {:nack, 0}", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} =
+        CallerClient.init([on_success: :nack, on_failure: {:nack, 0}] ++ opts)
+
+      messages = build_messages(6, ack_ref)
+
+      {successful, failed} = Enum.split(messages, 3)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_received({:put_deadline, 6, 0})
+    end
+
+    test "configuring message treats :nack as {:nack, 0}", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} =
+        CallerClient.init([on_success: :nack, on_failure: {:nack, 0}] ++ opts)
+
+      [first | messages] = build_messages(6, ack_ref)
+
+      first = Message.configure_ack(first, on_success: :nack)
+
+      {successful, failed} = Enum.split([first | messages], 3)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_received({:put_deadline, 6, 0})
+    end
+
+    test "chunks actions every 3_000 ack_ids", %{producer_opts: opts} do
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init([on_failure: :nack] ++ opts)
+
+      messages = build_messages(10_000, ack_ref)
+
+      {successful, failed} = Enum.split(messages, 3_500)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_received({:acknowledge, 3_000})
+      assert_received({:acknowledge, 500})
+      assert_received({:put_deadline, 3_000, 0})
+      assert_received({:put_deadline, 3_000, 0})
+      assert_received({:put_deadline, 500, 0})
     end
   end
 
