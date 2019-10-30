@@ -3,8 +3,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
   import ExUnit.CaptureLog
 
+  alias BroadwayCloudPubSub.ClientAcknowledger
   alias BroadwayCloudPubSub.GoogleApiClient
   alias Broadway.Message
+  alias Broadway.TermStorage
+
+  @subscription_base "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar"
 
   @pull_response """
   {
@@ -45,7 +49,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
   }
   """
 
-  @acknowledge_response """
+  @empty_response """
   {}
   """
 
@@ -185,11 +189,73 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test ":token_generator supercedes :scope validation" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
-      assert {:ok, result} =
+      assert {:ok, _result} =
                opts
                |> Keyword.put(:scope, :an_invalid_scope)
                |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
                |> GoogleApiClient.init()
+    end
+
+    test ":on_success should be a valid acknowledgement option" do
+      opts = [client: GoogleApiClient, subscription: "projects/foo/subscriptions/bar"]
+
+      assert {:ok, result} = opts |> Keyword.put(:on_success, :ack) |> GoogleApiClient.init()
+      assert %ClientAcknowledger{on_success: :ack} = TermStorage.get!(result.ack_ref)
+
+      assert {:ok, result} = opts |> Keyword.put(:on_success, :nack) |> GoogleApiClient.init()
+      assert %ClientAcknowledger{on_success: {:nack, 0}} = TermStorage.get!(result.ack_ref)
+
+      assert {:ok, result} =
+               opts |> Keyword.put(:on_success, {:nack, 10}) |> GoogleApiClient.init()
+
+      assert %ClientAcknowledger{on_success: {:nack, 10}} = TermStorage.get!(result.ack_ref)
+
+      {:error, message} =
+        opts
+        |> Keyword.put(:on_success, 1)
+        |> GoogleApiClient.init()
+
+      assert message ==
+               "expected :on_success to be a valid acknowledgement option, got: 1"
+
+      {:error, message} =
+        opts
+        |> Keyword.put(:on_success, {:nack, :foo})
+        |> GoogleApiClient.init()
+
+      assert message ==
+               "expected :on_success to be a valid acknowledgement option, got: {:nack, :foo}"
+    end
+
+    test ":on_failure should be a valid acknowledgement option" do
+      opts = [client: GoogleApiClient, subscription: "projects/foo/subscriptions/bar"]
+
+      assert {:ok, result} = opts |> Keyword.put(:on_failure, :ack) |> GoogleApiClient.init()
+      assert %ClientAcknowledger{on_failure: :ack} = TermStorage.get!(result.ack_ref)
+
+      assert {:ok, result} = opts |> Keyword.put(:on_failure, :nack) |> GoogleApiClient.init()
+      assert %ClientAcknowledger{on_failure: {:nack, 0}} = TermStorage.get!(result.ack_ref)
+
+      assert {:ok, result} =
+               opts |> Keyword.put(:on_failure, {:nack, 10}) |> GoogleApiClient.init()
+
+      assert %ClientAcknowledger{on_failure: {:nack, 10}} = TermStorage.get!(result.ack_ref)
+
+      {:error, message} =
+        opts
+        |> Keyword.put(:on_failure, 1)
+        |> GoogleApiClient.init()
+
+      assert message ==
+               "expected :on_failure to be a valid acknowledgement option, got: 1"
+
+      {:error, message} =
+        opts
+        |> Keyword.put(:on_failure, {:nack, :foo})
+        |> GoogleApiClient.init()
+
+      assert message ==
+               "expected :on_failure to be a valid acknowledgement option, got: {:nack, :foo}"
     end
   end
 
@@ -214,12 +280,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       }
     end
 
-    test "returns a list of Broadway.Message with :data, :metadata, and :acknowledger set", %{
+    test "returns a list of Broadway.Message with :data and :metadata set", %{
       opts: base_opts
     } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
       [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
-      ack_data = %{ack_id: "1", on_failure: :ignore, on_success: :ack}
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -229,8 +294,6 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
                "foo" => "bar",
                "qux" => ""
              } = message1.metadata.attributes
-
-      assert message1.acknowledger == {GoogleApiClient, opts.ack_ref, ack_data}
 
       assert message2.data == "Message2"
       assert message2.metadata.messageId == "19917247035"
@@ -287,60 +350,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
   end
 
-  describe "configure/3" do
-    test "raise on unsupported configure option" do
-      assert_raise(ArgumentError, "unsupported configure option :on_other", fn ->
-        GoogleApiClient.configure(:channel, %{}, on_other: :ack)
-      end)
-    end
-
-    test "raise on unsupported on_success value" do
-      error_msg = "expected :on_success to be a valid on_success value, got: :unknown"
-
-      assert_raise(ArgumentError, error_msg, fn ->
-        GoogleApiClient.configure(:channel, %{}, on_success: :unknown)
-      end)
-    end
-
-    test "raise on unsupported on_failure value" do
-      error_msg = "expected :on_failure to be a valid on_failure value, got: :unknown"
-
-      assert_raise(ArgumentError, error_msg, fn ->
-        GoogleApiClient.configure(:channel, %{}, on_failure: :unknown)
-      end)
-    end
-
-    test "set on_success correctly" do
-      ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_success: :ack}
-
-      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :ack)
-    end
-
-    test "set on_success with ignore" do
-      ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_success: :ignore}
-
-      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_success: :ignore)
-    end
-
-    test "set on_failure with deadline 0" do
-      ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_failure: {:nack, 0}}
-
-      assert {:ok, expected} == GoogleApiClient.configure(:channel, ack_data, on_failure: :nack)
-    end
-
-    test "set on_failure with custom deadline" do
-      ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_failure: {:nack, 60}}
-
-      assert {:ok, expected} ==
-               GoogleApiClient.configure(:channel, ack_data, on_failure: {:nack, 60})
-    end
-  end
-
-  describe "ack/2" do
+  describe "acknowledge/2" do
     setup do
       test_pid = self()
 
@@ -348,7 +358,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         body_object = Poison.decode!(req.body)
         send(test_pid, {:http_request_called, %{url: req.url, body: body_object}})
 
-        %Tesla.Env{status: 200, body: @acknowledge_response}
+        %Tesla.Env{status: 200, body: @empty_response}
       end)
 
       %{
@@ -361,44 +371,18 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       }
     end
 
-    test "send a projects.subscriptions.acknowledge request", %{opts: base_opts} do
+    test "makes a projects.subscriptions.acknowledge request", %{opts: base_opts} do
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
-      messages = test_messages(opts)
-
-      GoogleApiClient.ack(opts.ack_ref, messages, [])
+      GoogleApiClient.acknowledge(["1", "2", "3"], opts)
 
       assert_received {:http_request_called, %{body: body, url: url}}
 
-      assert body == %{"ackIds" => ["1", "2"]}
+      assert body == %{"ackIds" => ["1", "2", "3"]}
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
-    test "with no successful messages, by default is a no-op", %{opts: base_opts} do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
-
-      messages = test_messages(opts, data: {:failed, :test})
-      GoogleApiClient.ack(opts.ack_ref, [], messages)
-
-      refute_received {:http_request_called, _}
-    end
-
-    test "with no successful messages, send projects.subscriptions.modifyAckDeadline", %{
-      opts: base_opts
-    } do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
-
-      messages = test_messages(opts, on_failure: {:nack, 0}, data: {:failed, :test})
-      GoogleApiClient.ack(opts.ack_ref, [], messages)
-
-      assert_received {:http_request_called, %{body: body, url: url}}
-      assert body == %{"ackIds" => ["1", "2"], "ackDeadlineSeconds" => 0}
-
-      assert url ==
-               "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:modifyAckDeadline"
-    end
-
-    test "if the request fails, returns :ok and logs the error", %{pid: pid, opts: base_opts} do
+    test "if the request fails, returns :ok and logs an error", %{pid: pid, opts: base_opts} do
       Tesla.Mock.mock(fn %{method: :post} = req ->
         body_object = Poison.decode!(req.body)
         send(pid, {:http_request_called, %{url: req.url, body: body_object}})
@@ -408,11 +392,61 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
-      messages = test_messages(opts)
+      assert capture_log(fn ->
+               assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
+             end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub, reason: "
+    end
+  end
+
+  describe "put_deadline/3" do
+    setup do
+      test_pid = self()
+
+      Tesla.Mock.mock(fn %{method: :post} = req ->
+        body_object = Poison.decode!(req.body)
+        send(test_pid, {:http_request_called, %{url: req.url, body: body_object}})
+
+        %Tesla.Env{status: 200, body: @empty_response}
+      end)
+
+      %{
+        pid: test_pid,
+        opts: [
+          __internal_tesla_adapter__: Tesla.Mock,
+          subscription: "projects/foo/subscriptions/bar",
+          token_generator: {__MODULE__, :generate_token, []}
+        ]
+      }
+    end
+
+    test "makes a projects.subscriptions.modifyAckDeadline request", %{
+      opts: base_opts
+    } do
+      {:ok, opts} = GoogleApiClient.init(base_opts)
+
+      ack_ids = ["1", "2"]
+      GoogleApiClient.put_deadline(ack_ids, 30, opts)
+
+      assert_received {:http_request_called, %{body: body, url: url}}
+      assert body == %{"ackIds" => ack_ids, "ackDeadlineSeconds" => 30}
+
+      assert url ==
+               "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:modifyAckDeadline"
+    end
+
+    test "if the request fails, returns :ok and logs an error", %{pid: pid, opts: base_opts} do
+      Tesla.Mock.mock(fn %{method: :post} = req ->
+        body_object = Poison.decode!(req.body)
+        send(pid, {:http_request_called, %{url: req.url, body: body_object}})
+
+        %Tesla.Env{status: 503, body: %{}}
+      end)
+
+      {:ok, opts} = GoogleApiClient.init(base_opts)
 
       assert capture_log(fn ->
-               assert GoogleApiClient.ack(opts.ack_ref, messages, []) == :ok
-             end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub. Reason: "
+               assert GoogleApiClient.put_deadline(["1", "2"], 60, opts) == :ok
+             end) =~ "[error] Unable to put new ack deadline with Cloud Pub/Sub, reason: "
     end
   end
 
@@ -446,26 +480,162 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
   end
 
-  def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
+  describe "integration with BroadwayCloudPubSub.ClientAcknowledger" do
+    setup do
+      test_pid = self()
 
-  defp test_messages(client_opts, opts \\ []) do
-    data = opts[:data]
-    on_success = opts[:on_success] || :ack
-    on_failure = opts[:on_failure] || :ignore
+      Tesla.Mock.mock(fn
+        %{url: <<@subscription_base, action::binary>> = url} = req when action == ":pull" ->
+          body_object = Poison.decode!(req.body)
 
-    [
-      %Message{
-        acknowledger:
-          {GoogleApiClient, client_opts.ack_ref,
-           %{ack_id: "1", on_success: on_success, on_failure: on_failure}},
-        data: data
-      },
-      %Message{
-        acknowledger:
-          {GoogleApiClient, client_opts.ack_ref,
-           %{ack_id: "2", on_success: on_success, on_failure: on_failure}},
-        data: data
-      }
-    ]
+          send(test_pid, {:pull_dispatched, %{url: url, body: body_object}})
+
+          %Tesla.Env{status: 200, body: @pull_response}
+
+        %{url: <<@subscription_base, action::binary>>} = req when action == ":acknowledge" ->
+          %{"ackIds" => ack_ids} = Poison.decode!(req.body)
+
+          send(test_pid, {:acknowledge_dispatched, length(ack_ids)})
+
+          %Tesla.Env{status: 200, body: @empty_response}
+
+        %{url: <<@subscription_base, action::binary>>} = req
+        when action == ":modifyAckDeadline" ->
+          %{"ackIds" => ack_ids, "ackDeadlineSeconds" => deadline} = Poison.decode!(req.body)
+
+          send(
+            test_pid,
+            {:modack_dispatched, length(ack_ids), deadline}
+          )
+
+          %Tesla.Env{status: 200, body: @empty_response}
+      end)
+
+      {:ok,
+       %{
+         pid: test_pid,
+         opts: [
+           client: GoogleApiClient,
+           __internal_tesla_adapter__: Tesla.Mock,
+           subscription: "projects/foo/subscriptions/bar",
+           token_generator: {__MODULE__, :generate_token, []}
+         ]
+       }}
+    end
+
+    test "returns a list of Broadway.Message structs with #{inspect(ClientAcknowledger)} set", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} = GoogleApiClient.init(base_opts)
+
+      [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
+
+      assert {ClientAcknowledger, ^ack_ref, _} = message1.acknowledger
+      assert {ClientAcknowledger, ^ack_ref, _} = message2.acknowledger
+      assert {ClientAcknowledger, ^ack_ref, _} = message3.acknowledger
+    end
+
+    test "with defaults successful messages are acknowledged, and failed messages are ignored", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} = GoogleApiClient.init(base_opts)
+
+      messages = GoogleApiClient.receive_messages(10, opts)
+
+      {successful, failed} = Enum.split(messages, 1)
+
+      ClientAcknowledger.ack(ack_ref, successful, failed)
+
+      assert_receive {:acknowledge_dispatched, 1}
+    end
+
+    test "when :on_success is :ignore, acknowledgement is a no-op", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} =
+        base_opts
+        |> Keyword.put(:on_success, :ignore)
+        |> GoogleApiClient.init()
+
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+
+      ClientAcknowledger.ack(ack_ref, messages, [])
+
+      refute_receive {:acknowledge_dispatched, 3}
+    end
+
+    test "when :on_success is :nack, dispatches modifyAckDeadline", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} =
+        base_opts
+        |> Keyword.put(:on_success, :nack)
+        |> GoogleApiClient.init()
+
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+
+      ClientAcknowledger.ack(ack_ref, messages, [])
+
+      assert_receive {:modack_dispatched, 3, 0}
+      refute_receive {:acknowledge_dispatched, 3}
+    end
+
+    test "when :on_success is {:nack, integer}, dispatches modifyAckDeadline", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} =
+        base_opts
+        |> Keyword.put(:on_success, {:nack, 300})
+        |> GoogleApiClient.init()
+
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+
+      ClientAcknowledger.ack(ack_ref, messages, [])
+
+      assert_receive {:modack_dispatched, 3, 300}
+      refute_receive {:acknowledge_dispatched, 3}
+    end
+
+    test "with default :on_failure, failed messages are ignored", %{opts: base_opts} do
+      {:ok, %{ack_ref: ack_ref} = opts} = GoogleApiClient.init(base_opts)
+
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+
+      ClientAcknowledger.ack(ack_ref, [], messages)
+
+      refute_receive {:acknowledge_dispatched, 3}
+    end
+
+    test "when :on_failure is :nack, dispatches modifyAckDeadline", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} =
+        base_opts
+        |> Keyword.put(:on_failure, :nack)
+        |> GoogleApiClient.init()
+
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+
+      ClientAcknowledger.ack(ack_ref, [], messages)
+
+      assert_receive {:modack_dispatched, 3, 0}
+    end
+
+    test "when :on_failure is {:nack, integer}, dispatches modifyAckDeadline", %{
+      opts: base_opts
+    } do
+      {:ok, %{ack_ref: ack_ref} = opts} =
+        base_opts
+        |> Keyword.put(:on_failure, {:nack, 60})
+        |> GoogleApiClient.init()
+
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+
+      ClientAcknowledger.ack(ack_ref, [], messages)
+
+      assert_receive {:modack_dispatched, 3, 60}
+    end
   end
+
+  def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
 end

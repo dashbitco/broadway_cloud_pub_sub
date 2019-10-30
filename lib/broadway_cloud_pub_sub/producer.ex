@@ -28,20 +28,27 @@ defmodule BroadwayCloudPubSub.Producer do
       to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
       Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
 
-    * `:on_success` - Optional. Configures the acking behaviour for successful messages.
-       See the "Acking" section below for all the possible values. This option can also be changed for each
-       message through `Broadway.Message.configure_ack/2`. Defaults to `:ack`.
-
-    * `:on_failure` - Optional. Configures the acking messages for failed messages. See the "Acking" section
-       below for all the possible values. This option can also be changed for each message through
-       `Broadway.Message.configure_ack/2`. Defaults to `:ignore`
-
     * `:pool_opts` - Optional. A set of additional options to override the
        default `:hackney_pool` configuration options.
 
+  ## Acknowledger options
+
+  These options apply to `BroadwayCloudPubSub.GoogleApiClient`, as well as any
+  client using the ClientAcknowledger integration:
+
+    * `:on_success` - Optional. Configures the behaviour for successful messages.
+       See the "Acknowledgements" section below for all the possible values.
+       This option can also be changed for each message through `Broadway.Message.configure_ack/2`.
+       Default is `:ack`.
+
+    * `:on_failure` - Optional. Configures the behaviour for failed messages.
+       See the "Acknowledgements" section below for all the possible values. This
+       option can also be changed for each message through `Broadway.Message.configure_ack/2`.
+       Default is `:ignore`.
+
   ## Additional options
 
-  These options applies to all producers, regardless of client implementation:
+  These options apply to all producers, regardless of client implementation:
 
     * `:client` - Optional. A module that implements the `BroadwayCloudPubSub.Client`
       behaviour. This module is responsible for fetching and acknowledging the
@@ -71,22 +78,32 @@ defmodule BroadwayCloudPubSub.Producer do
   The above configuration will set up a producer that continuously receives messages
   from `"projects/my-project/subscriptions/my_subscription"` and sends them downstream.
 
-  ## Acking
+  ## Acknowledgements
 
-  You can use the `:on_success` and `:on_failure` options to control how messages are acked on PubSub.
-  By default successful messages are acked and failed messages are ignored.
-  You can set `:on_success` and `:on_failure` when starting the PubSub producer,
-  or change them for each message through `Broadway.Message.configure_ack/2`
+  You can use the `:on_success` and `:on_failure` options to control how
+  messages are acknowledged with the Pub/Sub system.
 
-  Here is the list of all possible values supported by `:on_success` and `:on_failure`:
+  By default successful messages are acknowledged and failed messages are ignored.
+  You can set `:on_success` and `:on_failure` when starting this producer,
+  or change them for each message through `c:Broadway.Message.configure_ack/2`.
 
-  * `:ack` - Acknowledge the message. PubSub will mark the message as acked.
-  * `:ignore` - Don't do anything. It won't notify to PubSub, and it will apply the default deadline.
-  * `:nack` - Change the deadline to 0 seconds.
-  * `{:nack, integer}` - Change the deadline to the seconds specified.
+  The following values are supported by both `:on_success` and `:on_failure`:
 
+  * `:ack` - Acknowledge the message. Pub/Sub can remove the message from
+     the subscription.
 
-  Read more about modifying the deadline of the messages [in the PubSub documentation](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/modifyAckDeadline)
+  * `:ignore` - Do nothing. No requests will be made to Pub/Sub, and the
+     message will be rescheduled according to the subscription-level
+     `ackDeadlineSeconds`.
+
+  * `:nack` - Make a request to Pub/Sub to set `ackDeadlineSeconds` to `0`,
+     which may cause the message to be immediately redelivered to another
+     connected consumer. Note that this does not modify the subscription-level
+     `ackDeadlineSeconds` used for subsequent messages.
+
+  * `{:nack, integer}` - Modifies the `ackDeadlineSeconds` for a particular
+     message. Note that this does not modify the subscription-level
+     `ackDeadlineSeconds` used for subsequent messages.
   """
 
   use GenStage

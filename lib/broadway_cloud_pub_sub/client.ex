@@ -9,7 +9,25 @@ defmodule BroadwayCloudPubSub.Client do
 
   alias Broadway.Message
 
+  @typedoc """
+  A list of `Broadway.Message` structs.
+  """
   @type messages :: [Message.t()]
+
+  @typedoc """
+  The amount of time (in seconds) before Pub/Sub should reschedule a message.
+  """
+  @type ack_deadline :: 0..600
+
+  @typedoc """
+  The `ackId` returned by Pub/Sub to be used when acknowledging a message.
+  """
+  @type ack_id :: String.t()
+
+  @typedoc """
+  A list of `ackId` strings.
+  """
+  @type ack_ids :: list(ack_id)
 
   @doc """
   Invoked once by BroadwayCloudPubSub.Producer during `Broadway.start_link/2`.
@@ -23,7 +41,24 @@ defmodule BroadwayCloudPubSub.Client do
 
   @callback init(opts :: any) :: {:ok, normalized_opts :: any} | {:error, message :: binary}
 
+  @doc """
+  Dispatches a [`pull`](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/pull) request.
+  """
   @callback receive_messages(demand :: pos_integer, opts :: any) :: messages
 
-  @optional_callbacks prepare_to_connect: 2
+  @doc """
+  Dispatches a [`modifyAckDeadline`](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/modifyAckDeadline) request.
+
+  This callback is required when integrating with the ClientAcknowledger.
+  """
+  @callback put_deadline(ack_ids, ack_deadline, opts :: any) :: any
+
+  @doc """
+  Dispatches an [`acknowledge`](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/acknowledge) request.
+
+  This callback is required when integrating with the ClientAcknowledger.
+  """
+  @callback acknowledge(ack_ids, opts :: any) :: any
+
+  @optional_callbacks acknowledge: 2, prepare_to_connect: 2, put_deadline: 3
 end
