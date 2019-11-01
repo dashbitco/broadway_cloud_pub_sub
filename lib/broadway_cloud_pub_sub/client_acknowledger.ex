@@ -90,8 +90,8 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   @type t :: %__MODULE__{
           :client => module,
           :client_opts => any,
-          :on_failure => ack_option(),
-          :on_success => ack_option()
+          :on_failure => ack_option,
+          :on_success => ack_option
         }
 
   @enforce_keys [:client]
