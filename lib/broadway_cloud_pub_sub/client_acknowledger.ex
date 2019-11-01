@@ -1,6 +1,6 @@
 defmodule BroadwayCloudPubSub.ClientAcknowledger do
   # This module implements the `Broadway.Acknowledger` behaviour,
-  # using the client for communication with Google CLoud Pub/Sub.
+  # using the client for communication with Google Cloud Pub/Sub.
   #
   # ## Handling acknowledgements
   #
@@ -21,12 +21,12 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
 
   #       @impl true
   #       def init(opts) do
-  #         with {:ok, client_config} <- validate_config(opts),
-  #              {:ok, ack_config} <- ClientAcknowledger.init(opts) do
+  #         with {:ok, config} <- validate_config(opts),
+  #              {:ok, ack} <- ClientAcknowledger.init(opts) do
   #           # Build an ack_ref with your client config
-  #           ack_ref = ClientAcknowledger.ack_ref(ack_config, client_config)
+  #           ack_ref = ClientAcknowledger.ack_ref(ack, config)
 
-  #           {:ok, Map.put(client_config, :ack_ref, ack_ref)}
+  #           {:ok, %{config | ack_ref: ack_ref}}
   #         end
   #       end
 
@@ -72,7 +72,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   @behaviour Acknowledger
 
   @typedoc """
-  Ackmowledgement data for a `Broadway.Message`.
+  Acknowledgement data for a `Broadway.Message`.
   """
   @type ack_data :: %{
           :ack_id => String.t(),
@@ -90,8 +90,8 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   @type t :: %__MODULE__{
           :client => module,
           :client_opts => any,
-          :on_failure => ack_option,
-          :on_success => ack_option
+          :on_failure => ack_option(),
+          :on_success => ack_option()
         }
 
   @enforce_keys [:client]
@@ -157,7 +157,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
 
   @impl Acknowledger
   def ack(ack_ref, successful, failed) do
-    config = Broadway.TermStorage.get!(ack_ref)
+    config = TermStorage.get!(ack_ref)
 
     success_actions = group_actions_ack_ids(successful, :on_success, config)
     failure_actions = group_actions_ack_ids(failed, :on_failure, config)

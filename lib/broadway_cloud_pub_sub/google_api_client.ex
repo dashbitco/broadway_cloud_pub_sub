@@ -68,7 +68,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_generator} <- validate_token_opts(opts),
          {:ok, pull_request} <- validate_pull_request(opts),
-         {:ok, ack_config} <- ClientAcknowledger.init([client: __MODULE__] ++ opts) do
+         {:ok, ack} <- ClientAcknowledger.init([client: __MODULE__] ++ opts) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
       connection_pool = Keyword.get(opts, :__connection_pool__, :default)
 
@@ -79,7 +79,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
         token_generator: token_generator
       }
 
-      ack_ref = ClientAcknowledger.ack_ref(ack_config, config)
+      ack_ref = ClientAcknowledger.ack_ref(ack, config)
 
       {:ok, Map.merge(config, %{ack_ref: ack_ref, pull_request: pull_request})}
     end

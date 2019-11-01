@@ -49,14 +49,14 @@ defmodule BroadwayCloudPubSub.Client do
   @doc """
   Dispatches a [`modifyAckDeadline`](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/modifyAckDeadline) request.
 
-  This callback is required when integrating with the ClientAcknowledger.
+  This callback is required when integrating with the `ClientAcknowledger`.
   """
   @callback put_deadline(ack_ids, ack_deadline, opts :: any) :: any
 
   @doc """
   Dispatches an [`acknowledge`](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/acknowledge) request.
 
-  This callback is required when integrating with the ClientAcknowledger.
+  This callback is required when integrating with the `ClientAcknowledger`.
   """
   @callback acknowledge(ack_ids, opts :: any) :: any
 
