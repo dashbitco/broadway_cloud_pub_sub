@@ -97,6 +97,13 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   @enforce_keys [:client]
   defstruct [:client, :client_opts, on_failure: :ignore, on_success: :ack]
 
+  # The maximum number of ackIds to be sent in acknowledge/modifyAckDeadline
+  # requests. There is an API limit of 524288 bytes (512KiB) per acknowledge/modifyAckDeadline
+  # request. ackIds have a maximum size of 164 bytes, so 524288/164 ~= 3197.
+  # Accounting for some overhead, a maximum of 3000 ackIds per request should be safe.
+  # See https://github.com/googleapis/nodejs-pubsub/pull/65/files#diff-3d29c4447546c72118ed5d5cbf38ab8bR34-R42
+  @max_ack_ids_per_request 3_000
+
   @doc """
   Initializes this acknowledger for use with a `BroadwayCloudPubSub.Client`.
 
@@ -196,7 +203,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   defp ack_messages(actions_and_ids, config) do
     Enum.each(actions_and_ids, fn {action, ack_ids} ->
       ack_ids
-      |> Enum.chunk_every(3_000)
+      |> Enum.chunk_every(@max_ack_ids_per_request)
       |> Enum.each(&apply_ack_func(action, &1, config))
     end)
   end
