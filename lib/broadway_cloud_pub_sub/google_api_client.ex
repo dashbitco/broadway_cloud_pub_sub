@@ -6,22 +6,23 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   """
 
   import GoogleApi.PubSub.V1.Api.Projects
-  alias Broadway.{Message, Acknowledger}
-  alias BroadwayCloudPubSub.Client
+  alias Broadway.Message
+  alias BroadwayCloudPubSub.{Client, ClientAcknowledger}
   alias GoogleApi.PubSub.V1.Connection
 
   alias GoogleApi.PubSub.V1.Model.{
-    PullRequest,
     AcknowledgeRequest,
     ModifyAckDeadlineRequest,
-    PubsubMessage
+    PubsubMessage,
+    PullResponse,
+    PullRequest,
+    ReceivedMessage
   }
 
   alias Tesla.Adapter.Hackney
   require Logger
 
   @behaviour Client
-  @behaviour Acknowledger
 
   @default_max_number_of_messages 10
 
@@ -67,32 +68,20 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_generator} <- validate_token_opts(opts),
          {:ok, pull_request} <- validate_pull_request(opts),
-         {:ok, on_success} <- validate(opts, :on_success, :ack),
-         {:ok, on_failure} <- validate(opts, :on_failure, :ignore) do
+         {:ok, ack} <- ClientAcknowledger.init([client: __MODULE__] ++ opts) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
       connection_pool = Keyword.get(opts, :__connection_pool__, :default)
 
-      storage_ref =
-        Broadway.TermStorage.put(%{
-          adapter: adapter,
-          connection_pool: connection_pool,
-          subscription: subscription,
-          token_generator: token_generator
-        })
+      config = %{
+        adapter: adapter,
+        connection_pool: connection_pool,
+        subscription: subscription,
+        token_generator: token_generator
+      }
 
-      ack_ref = {__MODULE__, storage_ref}
+      ack_ref = ClientAcknowledger.ack_ref(ack, config)
 
-      {:ok,
-       %{
-         adapter: adapter,
-         connection_pool: connection_pool,
-         subscription: subscription,
-         token_generator: token_generator,
-         pull_request: pull_request,
-         ack_ref: ack_ref,
-         on_success: on_success,
-         on_failure: on_failure
-       }}
+      {:ok, Map.merge(config, %{ack_ref: ack_ref, pull_request: pull_request})}
     end
   end
 
@@ -107,54 +96,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       opts.subscription.subscriptions_id,
       body: pull_request
     )
-    |> wrap_received_messages(opts.ack_ref, opts)
+    |> handle_response(:receive_messages)
+    |> wrap_received_messages(opts.ack_ref)
   end
 
-  @impl Acknowledger
-  def ack(ack_ref, successful, failed) do
-    ack_messages(successful, ack_ref, :successful)
-    ack_messages(failed, ack_ref, :failed)
-  end
-
-  @impl Acknowledger
-  def configure(_ack_ref, ack_data, options) do
-    options = assert_valid_success_failure_opts!(options)
-    ack_data = Map.merge(ack_data, Map.new(options))
-    {:ok, ack_data}
-  end
-
-  defp assert_valid_success_failure_opts!(options) do
-    Enum.map(options, fn
-      {:on_success, value} -> {:on_success, validate_option!(:on_success, value)}
-      {:on_failure, value} -> {:on_failure, validate_option!(:on_failure, value)}
-      {other, _value} -> raise ArgumentError, "unsupported configure option #{inspect(other)}"
-    end)
-  end
-
-  defp ack_messages([], _ref, _kind), do: :ok
-
-  defp ack_messages(messages, {_pid, ref}, kind) do
-    opts = Broadway.TermStorage.get!(ref)
-
-    messages
-    |> Enum.group_by(&group_acknowledger(&1, kind))
-    |> Enum.map(fn {action, messages} ->
-      action |> apply_ack_func(messages, opts) |> handle_acknowledged_messages()
-    end)
-  end
-
-  defp group_acknowledger(%{acknowledger: {_mod, _chan, ack_data}}, kind) do
-    ack_data_action(ack_data, kind)
-  end
-
-  defp ack_data_action(%{on_success: action}, :successful), do: action
-  defp ack_data_action(%{on_failure: action}, :failed), do: action
-
-  defp apply_ack_func(:ignore, _messages, _opts), do: :ok
-
-  defp apply_ack_func(:ack, messages, opts) do
-    ack_ids = Enum.map(messages, &extract_ack_id/1)
-
+  @impl Client
+  def acknowledge(ack_ids, opts) do
     opts
     |> conn!()
     |> pubsub_projects_subscriptions_acknowledge(
@@ -162,14 +109,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       opts.subscription.subscriptions_id,
       body: %AcknowledgeRequest{ackIds: ack_ids}
     )
+    |> handle_response(:acknowledge)
   end
 
-  defp apply_ack_func(:nack, messages, opts),
-    do: apply_ack_func({:nack, 0}, messages, opts)
-
-  defp apply_ack_func({:nack, deadline}, messages, opts) do
-    ack_ids = Enum.map(messages, &extract_ack_id/1)
-
+  @impl Client
+  def put_deadline(ack_ids, deadline, opts) when deadline in 0..600 do
     opts
     |> conn!()
     |> pubsub_projects_subscriptions_modify_ack_deadline(
@@ -177,51 +121,59 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       opts.subscription.subscriptions_id,
       body: %ModifyAckDeadlineRequest{ackDeadlineSeconds: deadline, ackIds: ack_ids}
     )
+    |> handle_response(:put_deadline)
   end
 
-  defp handle_acknowledged_messages(:ok), do: :ok
+  # The typespec for PullResponse is too strict. If Pub/Sub returns an empty
+  # response, then `receivedMessages` will be nil.
+  defp handle_response({:ok, %PullResponse{receivedMessages: nil}}, :receive_messages) do
+    []
+  end
 
-  defp handle_acknowledged_messages({:ok, _}), do: :ok
+  defp handle_response({:ok, response}, :receive_messages) do
+    %PullResponse{receivedMessages: received_messages} = response
+    received_messages
+  end
 
-  defp handle_acknowledged_messages({:error, reason}) do
-    Logger.error("Unable to acknowledge messages with Cloud Pub/Sub. Reason: #{inspect(reason)}")
+  defp handle_response({:ok, _}, _), do: :ok
+
+  defp handle_response({:error, reason}, :receive_messages) do
+    Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect(reason)}")
+    []
+  end
+
+  defp handle_response({:error, reason}, :acknowledge) do
+    Logger.error("Unable to acknowledge messages with Cloud Pub/Sub, reason: #{inspect(reason)}")
     :ok
   end
 
-  defp wrap_received_messages({:ok, %{receivedMessages: received_messages}}, ack_ref, opts)
-       when is_list(received_messages) do
-    Enum.map(received_messages, fn %{message: message, ackId: ack_id} ->
+  defp handle_response({:error, reason}, :put_deadline) do
+    Logger.error("Unable to put new ack deadline with Cloud Pub/Sub, reason: #{inspect(reason)}")
+    :ok
+  end
+
+  defp wrap_received_messages(received_messages, ack_ref) do
+    Enum.map(received_messages, fn received_message ->
+      %ReceivedMessage{message: message, ackId: ack_id} = received_message
+
       {data, metadata} =
         message
         |> decode_message()
         |> Map.from_struct()
         |> Map.pop(:data)
 
-      ack_data = %{ack_id: ack_id, on_success: opts.on_success, on_failure: opts.on_failure}
-
       %Message{
         data: data,
         metadata: metadata,
-        acknowledger: {__MODULE__, ack_ref, ack_data}
+        acknowledger: ClientAcknowledger.acknowledger(ack_id, ack_ref)
       }
     end)
-  end
-
-  defp wrap_received_messages({:ok, _}, _ack_ref, _opts) do
-    []
-  end
-
-  defp wrap_received_messages({:error, reason}, _, _) do
-    Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect(reason)}")
-    []
   end
 
   defp decode_message(%PubsubMessage{data: nil} = message), do: message
 
   defp decode_message(%PubsubMessage{data: encoded_data} = message) do
-    data = Base.decode64!(encoded_data)
-
-    put_in(message.data, data)
+    %{message | data: Base.decode64!(encoded_data)}
   end
 
   defp put_max_number_of_messages(pull_request, demand) do
@@ -230,20 +182,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     %{pull_request | maxMessages: max_number_of_messages}
   end
 
-  defp extract_ack_id(message) do
-    {_, _, %{ack_id: ack_id}} = message.acknowledger
-    ack_id
-  end
-
   defp validate(opts, key, default \\ nil) when is_list(opts) do
     validate_option(key, opts[key] || default)
-  end
-
-  defp validate_option!(key, value) do
-    case validate_option(key, value) do
-      {:ok, value} -> value
-      {:error, message} -> raise ArgumentError, message
-    end
   end
 
   defp validate_option(:token_generator, {m, f, args})
@@ -268,24 +208,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp validate_option(:return_immediately, value) when not is_boolean(value),
     do: validation_error(:return_immediately, "a boolean value", value)
 
-  defp validate_option(action, value) when action in [:on_success, :on_failure] do
-    case validate_acking(value) do
-      {:ok, result} -> {:ok, result}
-      :error -> validation_error(action, "a valid #{action} value", value)
-    end
-  end
-
   defp validate_option(_, value), do: {:ok, value}
 
   defp validation_error(option, expected, value) do
     {:error, "expected #{inspect(option)} to be #{expected}, got: #{inspect(value)}"}
   end
-
-  defp validate_acking(:ack), do: {:ok, :ack}
-  defp validate_acking(:ignore), do: {:ok, :ignore}
-  defp validate_acking(:nack), do: {:ok, {:nack, 0}}
-  defp validate_acking({:nack, n}) when is_integer(n) and n >= 0, do: {:ok, {:nack, n}}
-  defp validate_acking(_), do: :error
 
   defp validate_pull_request(opts) do
     with {:ok, return_immediately} <- validate(opts, :return_immediately),
