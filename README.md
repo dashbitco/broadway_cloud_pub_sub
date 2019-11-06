@@ -33,15 +33,12 @@ end
 Configure Broadway with one or more producers using `BroadwayCloudPubSub.Producer`:
 
 ```elixir
-Broadway.start_link(
-  MyBroadway,
+Broadway.start_link(MyBroadway,
   name: MyBroadway,
-  producers: [
-    default: [
-      module:
-        {BroadwayCloudPubSub.Producer,
-         subscription: "projects/my-project/subscriptions/my-subscription"}
-    ]
+  producer: [
+    module: {BroadwayCloudPubSub.Producer,
+      subscription: "projects/my-project/subscriptions/my-subscription"
+    }
   ]
 )
 ```

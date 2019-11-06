@@ -62,22 +62,6 @@ defmodule BroadwayCloudPubSub.Producer do
     * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
 
-  ### Example
-
-      Broadway.start_link(MyBroadway,
-        name: MyBroadway,
-        producers: [
-          default: [
-            module: {BroadwayCloudPubSub.Producer,
-              subscription: "projects/my-project/subscriptions/my_subscription"
-            }
-          ]
-        ]
-      )
-
-  The above configuration will set up a producer that continuously receives messages
-  from `"projects/my-project/subscriptions/my_subscription"` and sends them downstream.
-
   ## Acknowledgements
 
   You can use the `:on_success` and `:on_failure` options to control how
@@ -104,6 +88,38 @@ defmodule BroadwayCloudPubSub.Producer do
   * `{:nack, integer}` - Modifies the `ackDeadlineSeconds` for a particular
      message. Note that this does not modify the subscription-level
      `ackDeadlineSeconds` used for subsequent messages.
+
+  ### Batching
+
+  Even if you are not interested in working with Broadway batches via the
+  `handle_batch/3` callback, we recommend all Broadway pipelines with Pub/Sub
+  producers to define a default batcher with `batch_size` set to 10, so
+  messages can be acknowledged in batches, which improves the performance
+  and reduces the cost of integrating with Google Cloud Pub/Sub.
+
+  ### Example
+
+      Broadway.start_link(MyBroadway,
+        name: MyBroadway,
+        producer: [
+          module: {BroadwayCloudPubSub.Producer,
+            subscription: "projects/my-project/subscriptions/my_subscription"
+          }
+        ],
+        processors: [
+          default: []
+        ],
+        batchers: [
+          default: [
+            batch_size: 10,
+            batch_timeout: 2_000
+          ]
+        ]
+      )
+
+  The above configuration will set up a producer that continuously receives
+  messages from `"projects/my-project/subscriptions/my_subscription"` and sends
+  them downstream.
   """
 
   use GenStage
