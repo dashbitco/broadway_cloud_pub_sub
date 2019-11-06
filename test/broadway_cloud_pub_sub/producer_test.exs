@@ -182,6 +182,25 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     stop_broadway(pid)
   end
 
+  test "stop trying to receive new messages after start draining" do
+    {:ok, message_server} = MessageServer.start_link()
+    {:ok, pid} = start_broadway(message_server)
+
+    [producer] = Broadway.producer_names(pid)
+
+    assert_receive {:messages_received, 0}
+
+    :sys.suspend(producer)
+    flush_messages_received()
+    task = Task.async(fn -> Broadway.Producer.drain(producer) end)
+    :sys.resume(producer)
+    Task.await(task)
+
+    refute_receive {:messages_received, _}, 10
+
+    stop_broadway(pid)
+  end
+
   test "delete acknowledged messages" do
     {:ok, message_server} = MessageServer.start_link()
     {:ok, pid} = start_broadway(message_server)
@@ -261,6 +280,14 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
     receive do
       {:DOWN, ^ref, _, _, _} -> :ok
+    end
+  end
+
+  defp flush_messages_received() do
+    receive do
+      {:messages_received, 0} -> flush_messages_received()
+    after
+      0 -> :ok
     end
   end
 end
