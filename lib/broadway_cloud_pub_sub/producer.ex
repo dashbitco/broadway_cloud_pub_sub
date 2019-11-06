@@ -123,13 +123,14 @@ defmodule BroadwayCloudPubSub.Producer do
   """
 
   use GenStage
+  alias Broadway.Producer
 
-  @behaviour Broadway.Producer
+  @behaviour Producer
 
   @default_client BroadwayCloudPubSub.GoogleApiClient
   @default_receive_interval 5000
 
-  @impl Broadway.Producer
+  @impl Producer
   def prepare_for_start(module, opts) do
     {me, my_opts} = opts[:producer][:module]
     client = Keyword.get(my_opts, :client, @default_client)
@@ -178,6 +179,10 @@ defmodule BroadwayCloudPubSub.Producer do
   end
 
   @impl true
+  def handle_info(:receive_messages, %{receive_timer: nil} = state) do
+    {:noreply, [], state}
+  end
+
   def handle_info(:receive_messages, state) do
     handle_receive_messages(%{state | receive_timer: nil})
   end
@@ -185,6 +190,12 @@ defmodule BroadwayCloudPubSub.Producer do
   @impl true
   def handle_info(_, state) do
     {:noreply, [], state}
+  end
+
+  @impl Producer
+  def prepare_for_draining(%{receive_timer: receive_timer} = state) do
+    receive_timer && Process.cancel_timer(receive_timer)
+    {:noreply, [], %{state | receive_timer: nil}}
   end
 
   defp handle_receive_messages(%{receive_timer: nil, demand: demand} = state) when demand > 0 do
