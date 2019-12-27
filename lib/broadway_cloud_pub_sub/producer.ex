@@ -57,7 +57,7 @@ defmodule BroadwayCloudPubSub.Producer do
       is `BroadwayCloudPubSub.GoogleApiClient`.
 
     * `:pool_size` - Optional. The size of the connection pool. Default is
-       twice the number of producer stages.
+       twice the producer concurrency.
 
     * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
@@ -137,7 +137,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
     my_opts =
       Keyword.put_new_lazy(my_opts, :pool_size, fn ->
-        2 * opts[:producer][:stages]
+        2 * opts[:producer][:concurrency]
       end)
 
     {specs, my_opts} = prepare_to_connect(module, client, my_opts)
