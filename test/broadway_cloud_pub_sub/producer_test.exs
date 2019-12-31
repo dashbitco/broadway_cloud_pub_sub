@@ -255,16 +255,16 @@ defmodule BroadwayCloudPubSub.ProducerTest do
           BroadwayCloudPubSub.Producer,
           producer_opts
         },
-        stages: 1
+        concurrency: 1
       ],
       processors: [
-        default: [stages: 1]
+        default: [concurrency: 1]
       ],
       batchers: [
         default: [
           batch_size: 10,
           batch_timeout: 50,
-          stages: 1
+          concurrency: 1
         ]
       ]
     )
