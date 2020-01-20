@@ -1,8 +1,8 @@
 # BroadwayCloudPubSub
 
-[![Build Status](https://travis-ci.org/plataformatec/broadway_cloud_pub_sub.svg?branch=master)](https://travis-ci.org/plataformatec/broadway_cloud_pub_sub)
+[![Build Status](https://travis-ci.org/dashbitco/broadway_cloud_pub_sub.svg?branch=master)](https://travis-ci.org/dashbitco/broadway_cloud_pub_sub)
 
-A Google Cloud Pub/Sub connector for [Broadway](https://github.com/plataformatec/broadway).
+A Google Cloud Pub/Sub connector for [Broadway](https://github.com/dashbitco/broadway).
 
 Documentation can be found at [https://hexdocs.pm/broadway_cloud_pub_sub](https://hexdocs.pm/broadway_cloud_pub_sub).
 
