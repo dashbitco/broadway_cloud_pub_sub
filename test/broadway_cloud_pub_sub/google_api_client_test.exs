@@ -132,7 +132,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert message == "expected :max_number_of_messages to be a positive integer, got: :an_atom"
     end
 
-    test ":scope should be a string" do
+    test ":scope should be a string or tuple" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
       {:ok, result} = opts |> Keyword.put(:scope, "https://example.com") |> GoogleApiClient.init()
@@ -141,11 +141,22 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       {:error, message} = opts |> Keyword.put(:scope, :an_atom) |> GoogleApiClient.init()
 
-      assert message == "expected :scope to be a non empty string, got: :an_atom"
+      assert message == "expected :scope to be a non empty string or tuple, got: :an_atom"
 
       {:error, message} = opts |> Keyword.put(:scope, 1) |> GoogleApiClient.init()
 
-      assert message == "expected :scope to be a non empty string, got: 1"
+      assert message == "expected :scope to be a non empty string or tuple, got: 1"
+
+      {:error, message} = opts |> Keyword.put(:scope, {}) |> GoogleApiClient.init()
+
+      assert message == "expected :scope to be a non empty string or tuple, got: {}"
+
+      {:ok, result} =
+        opts
+        |> Keyword.put(:scope, {"mail@example.com", "https://example.com"})
+        |> GoogleApiClient.init()
+
+      assert {_, _, [{"mail@example.com", "https://example.com"}]} = result.token_generator
     end
 
     test ":token_generator defaults to using Goth with default scope" do

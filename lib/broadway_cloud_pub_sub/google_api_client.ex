@@ -194,8 +194,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp validate_option(:token_generator, value),
     do: validation_error(:token_generator, "a tuple {Mod, Fun, Args}", value)
 
-  defp validate_option(:scope, value) when not is_binary(value) or value == "",
-    do: validation_error(:scope, "a non empty string", value)
+  defp validate_option(:scope, value)
+       when not (is_binary(value) or is_tuple(value)) or (value == "" or value == {}),
+       do: validation_error(:scope, "a non empty string or tuple", value)
 
   defp validate_option(:subscription, value) when not is_binary(value) or value == "",
     do: validation_error(:subscription, "a non empty string", value)
