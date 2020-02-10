@@ -549,12 +549,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert_receive {:acknowledge_dispatched, 1}
     end
 
-    test "when :on_success is :ignore, acknowledgement is a no-op", %{
+    test "when :on_success is :noop, acknowledgement is a no-op", %{
       opts: base_opts
     } do
       {:ok, %{ack_ref: ack_ref} = opts} =
         base_opts
-        |> Keyword.put(:on_success, :ignore)
+        |> Keyword.put(:on_success, :noop)
         |> GoogleApiClient.init()
 
       [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)

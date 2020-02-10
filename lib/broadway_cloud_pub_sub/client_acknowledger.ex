@@ -83,7 +83,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   @typedoc """
   An acknowledgement action.
   """
-  @type ack_option :: :ack | :ignore | :nack | {:nack, Client.ack_deadline()}
+  @type ack_option :: :ack | :noop | :nack | {:nack, Client.ack_deadline()}
 
   @type ack_ref :: reference
 
@@ -95,7 +95,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
         }
 
   @enforce_keys [:client]
-  defstruct [:client, :client_opts, on_failure: :ignore, on_success: :ack]
+  defstruct [:client, :client_opts, on_failure: :noop, on_success: :ack]
 
   # The maximum number of ackIds to be sent in acknowledge/modifyAckDeadline
   # requests. There is an API limit of 524288 bytes (512KiB) per acknowledge/modifyAckDeadline
@@ -115,13 +115,13 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
 
     * `on_success` - Optional. The action to perform for successful messages. Default is `:ack`.
 
-    * `on_failure` - The action to perform for failed messages. Default is `:ignore`.
+    * `on_failure` - The action to perform for failed messages. Default is `:noop`.
   """
   @spec init(opts :: any) :: {:ok, t} | {:error, message :: binary}
   def init(opts) do
     with {:ok, client} <- validate(opts, :client),
          {:ok, on_success} <- validate(opts, :on_success, :ack),
-         {:ok, on_failure} <- validate(opts, :on_failure, :ignore) do
+         {:ok, on_failure} <- validate(opts, :on_failure, :noop) do
       {:ok,
        %__MODULE__{
          client: client,
@@ -208,7 +208,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
     end)
   end
 
-  defp apply_ack_func(:ignore, _ack_ids, _config), do: :ok
+  defp apply_ack_func(:noop, _ack_ids, _config), do: :ok
 
   defp apply_ack_func(:ack, ack_ids, config) do
     %__MODULE__{client: client, client_opts: opts} = config
@@ -284,8 +284,15 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
   end
 
   defp validate_action(:ack), do: {:ok, :ack}
-  defp validate_action(:ignore), do: {:ok, :ignore}
+  defp validate_action(:noop), do: {:ok, :noop}
   defp validate_action(:nack), do: {:ok, {:nack, 0}}
   defp validate_action({:nack, n}) when is_integer(n) and n >= 0, do: {:ok, {:nack, n}}
+
+  # TODO: remove in v0.7.0
+  defp validate_action(:ignore) do
+    IO.warn(":on_succes/:on_failure value :ignore is deprecated in favour of :noop")
+    {:ok, :noop}
+  end
+
   defp validate_action(_), do: :error
 end
