@@ -290,7 +290,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledger do
 
   # TODO: remove in v0.7.0
   defp validate_action(:ignore) do
-    IO.warn(":on_succes/:on_failure value :ignore is deprecated in favour of :noop")
+    IO.warn(":on_success/:on_failure value :ignore is deprecated in favour of :noop")
     {:ok, :noop}
   end
 
