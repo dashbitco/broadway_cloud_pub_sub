@@ -44,7 +44,7 @@ defmodule BroadwayCloudPubSub.Producer do
     * `:on_failure` - Optional. Configures the behaviour for failed messages.
        See the "Acknowledgements" section below for all the possible values. This
        option can also be changed for each message through `Broadway.Message.configure_ack/2`.
-       Default is `:ignore`.
+       Default is `:noop`.
 
   ## Additional options
 
@@ -76,7 +76,7 @@ defmodule BroadwayCloudPubSub.Producer do
   * `:ack` - Acknowledge the message. Pub/Sub can remove the message from
      the subscription.
 
-  * `:ignore` - Do nothing. No requests will be made to Pub/Sub, and the
+  * `:noop` - Do nothing. No requests will be made to Pub/Sub, and the
      message will be rescheduled according to the subscription-level
      `ackDeadlineSeconds`.
 

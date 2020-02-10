@@ -126,19 +126,19 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
                 %ClientAcknowledger{
                   client: CallerClient,
                   client_opts: nil,
-                  on_failure: :ignore,
+                  on_failure: :noop,
                   on_success: :ack
                 }}
     end
 
     test "with valid options, returns config with custom actions" do
-      assert ClientAcknowledger.init(client: CallerClient, on_success: :ignore, on_failure: :nack) ==
+      assert ClientAcknowledger.init(client: CallerClient, on_success: :noop, on_failure: :nack) ==
                {:ok,
                 %ClientAcknowledger{
                   client: CallerClient,
                   client_opts: nil,
                   on_failure: {:nack, 0},
-                  on_success: :ignore
+                  on_success: :noop
                 }}
     end
   end
@@ -175,10 +175,10 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
 
     test "set on_success with ignore" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_success: :ignore}
+      expected = %{ack_id: "1", on_success: :noop}
 
       assert {:ok, expected} ==
-               ClientAcknowledger.configure(:ack_ref, ack_data, on_success: :ignore)
+               ClientAcknowledger.configure(:ack_ref, ack_data, on_success: :noop)
     end
 
     test "set on_failure with deadline 0" do
@@ -218,7 +218,7 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
     end
 
     test "overriding default on_success", %{producer_opts: opts} do
-      {:ok, %{ack_ref: ack_ref}} = CallerClient.init([on_success: :ignore] ++ opts)
+      {:ok, %{ack_ref: ack_ref}} = CallerClient.init([on_success: :noop] ++ opts)
 
       messages = build_messages(6, ack_ref)
 
