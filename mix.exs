@@ -32,7 +32,7 @@ defmodule BroadwayCloudPubSub.MixProject do
 
   defp deps do
     [
-      {:broadway, github: "dashbitco/broadway"},
+      {:broadway, "~> 0.6.0-rc.0"},
       {:google_api_pub_sub, "~> 0.11"},
       {:hackney, "~> 1.6"},
       {:goth, "~> 1.0", optional: true},
