@@ -1,7 +1,7 @@
 defmodule BroadwayCloudPubSub.MixProject do
   use Mix.Project
 
-  @version "0.6.0-dev"
+  @version "0.6.0"
   @description "A Google Cloud Pub/Sub connector for Broadway"
   @repo_url "https://github.com/dashbitco/broadway_cloud_pub_sub"
 
@@ -9,7 +9,7 @@ defmodule BroadwayCloudPubSub.MixProject do
     [
       app: :broadway_cloud_pub_sub,
       version: @version,
-      elixir: "~> 1.5",
+      elixir: "~> 1.7",
       elixirc_paths: elixirc_paths(Mix.env()),
       name: "BroadwayCloudPubSub",
       description: @description,
@@ -32,7 +32,7 @@ defmodule BroadwayCloudPubSub.MixProject do
 
   defp deps do
     [
-      {:broadway, "~> 0.6.0-rc.0"},
+      {:broadway, "~> 0.6.0"},
       {:google_api_pub_sub, "~> 0.11"},
       {:hackney, "~> 1.6"},
       {:goth, "~> 1.0", optional: true},
