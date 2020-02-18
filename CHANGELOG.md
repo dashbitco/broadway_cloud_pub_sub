@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2020-02-18
+
+### Added
+
+- Support for passing a tuple for the `scope` option
+
+### Changed
+
+- Require [Broadway v0.6.0](https://hexdocs.pm/broadway/0.6.0)
+
 ## [0.5.0] - 2019-11-06
 
 ### Added
@@ -68,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
 
 
-[Unreleased]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.1.3...v0.3.0
