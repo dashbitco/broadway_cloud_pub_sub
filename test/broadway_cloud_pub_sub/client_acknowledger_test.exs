@@ -316,11 +316,11 @@ defmodule BroadwayCloudPubSub.ClientAcknowledgerTest do
 
       ClientAcknowledger.ack(ack_ref, successful, failed)
 
-      assert_received({:acknowledge, 3_000})
-      assert_received({:acknowledge, 500})
-      assert_received({:put_deadline, 3_000, 0})
-      assert_received({:put_deadline, 3_000, 0})
-      assert_received({:put_deadline, 500, 0})
+      assert_received({:acknowledge, 2_500})
+      assert_received({:acknowledge, 1_000})
+      assert_received({:put_deadline, 2_500, 0})
+      assert_received({:put_deadline, 2_500, 0})
+      assert_received({:put_deadline, 1_500, 0})
     end
   end
 
