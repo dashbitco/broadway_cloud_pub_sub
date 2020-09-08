@@ -67,8 +67,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   def init(opts) do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_generator} <- validate_token_opts(opts),
-         {:ok, pull_request} <- validate_pull_request(opts),
-         {:ok, ack} <- ClientAcknowledger.init([client: __MODULE__] ++ opts) do
+         {:ok, pull_request} <- validate_pull_request(opts) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
       connection_pool = Keyword.get(opts, :__connection_pool__, :default)
 
@@ -76,17 +75,16 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
         adapter: adapter,
         connection_pool: connection_pool,
         subscription: subscription,
-        token_generator: token_generator
+        token_generator: token_generator,
+        pull_request: pull_request
       }
 
-      ack_ref = ClientAcknowledger.ack_ref(ack, config)
-
-      {:ok, Map.merge(config, %{ack_ref: ack_ref, pull_request: pull_request})}
+      {:ok, config}
     end
   end
 
   @impl Client
-  def receive_messages(demand, opts) do
+  def receive_messages(demand, ack_builder, opts) do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
     opts
@@ -97,7 +95,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       body: pull_request
     )
     |> handle_response(:receive_messages)
-    |> wrap_received_messages(opts.ack_ref)
+    |> wrap_received_messages(ack_builder)
   end
 
   @impl Client
@@ -152,7 +150,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     :ok
   end
 
-  defp wrap_received_messages(received_messages, ack_ref) do
+  defp wrap_received_messages(received_messages, ack_builder) do
     Enum.map(received_messages, fn received_message ->
       %ReceivedMessage{message: message, ackId: ack_id} = received_message
 
@@ -165,7 +163,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       %Message{
         data: data,
         metadata: metadata,
-        acknowledger: ClientAcknowledger.acknowledger(ack_id, ack_ref)
+        acknowledger: ack_builder.(ack_id)
       }
     end)
   end

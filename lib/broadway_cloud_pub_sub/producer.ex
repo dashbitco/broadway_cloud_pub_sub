@@ -33,8 +33,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   ## Acknowledger options
 
-  These options apply to `BroadwayCloudPubSub.GoogleApiClient`, as well as any
-  client using the ClientAcknowledger integration:
+  These options apply to `BroadwayCloudPubSub.GoogleApiClient` acknowledgement API:
 
     * `:on_success` - Optional. Configures the behaviour for successful messages.
        See the "Acknowledgements" section below for all the possible values.
@@ -124,6 +123,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   use GenStage
   alias Broadway.Producer
+  alias BroadwayCloudPubSub.Acknowledger
 
   @behaviour Producer
 
@@ -158,18 +158,18 @@ defmodule BroadwayCloudPubSub.Producer do
     client = opts[:client] || @default_client
     receive_interval = opts[:receive_interval] || @default_receive_interval
 
-    case client.init(opts) do
-      {:error, message} ->
-        raise ArgumentError, "invalid options given to #{inspect(client)}.init/1, " <> message
-
-      {:ok, opts} ->
-        {:producer,
-         %{
-           demand: 0,
-           receive_timer: nil,
-           receive_interval: receive_interval,
-           client: {client, opts}
-         }}
+    with {:ok, config} <- client.init(opts),
+         {:ok, ack_ref} <- Acknowledger.init(client, config, opts) do
+      {:producer,
+       %{
+         demand: 0,
+         receive_timer: nil,
+         receive_interval: receive_interval,
+         client: {client, config},
+         ack_ref: ack_ref
+       }}
+    else
+      {:error, message} -> raise ArgumentError, message
     end
   end
 
@@ -217,8 +217,8 @@ defmodule BroadwayCloudPubSub.Producer do
   end
 
   defp receive_messages_from_pubsub(state, total_demand) do
-    %{client: {client, opts}} = state
-    client.receive_messages(total_demand, opts)
+    %{client: {client, opts}, ack_ref: ack_ref} = state
+    client.receive_messages(total_demand, Acknowledger.builder(ack_ref), opts)
   end
 
   defp schedule_receive_messages(interval) do

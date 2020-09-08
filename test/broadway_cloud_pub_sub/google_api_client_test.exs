@@ -3,10 +3,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
   import ExUnit.CaptureLog
 
-  alias BroadwayCloudPubSub.ClientAcknowledger
+  alias BroadwayCloudPubSub.Acknowledger
   alias BroadwayCloudPubSub.GoogleApiClient
   alias Broadway.Message
-  alias Broadway.TermStorage
 
   @subscription_base "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar"
 
@@ -52,6 +51,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
   @empty_response """
   {}
   """
+
+  defp init_with_ack_builder(opts) do
+    {:ok, config} = GoogleApiClient.init(opts)
+    {:ok, ack_ref} = Acknowledger.init(GoogleApiClient, config, opts)
+    {ack_ref, Acknowledger.builder(ack_ref), config}
+  end
 
   describe "validate init options" do
     test ":subscription is required" do
@@ -206,71 +211,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
                |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
                |> GoogleApiClient.init()
     end
-
-    test ":on_success should be a valid acknowledgement option" do
-      opts = [client: GoogleApiClient, subscription: "projects/foo/subscriptions/bar"]
-
-      assert {:ok, result} = opts |> Keyword.put(:on_success, :ack) |> GoogleApiClient.init()
-      assert %ClientAcknowledger{on_success: :ack} = TermStorage.get!(result.ack_ref)
-
-      assert {:ok, result} = opts |> Keyword.put(:on_success, :nack) |> GoogleApiClient.init()
-      assert %ClientAcknowledger{on_success: {:nack, 0}} = TermStorage.get!(result.ack_ref)
-
-      assert {:ok, result} =
-               opts |> Keyword.put(:on_success, {:nack, 10}) |> GoogleApiClient.init()
-
-      assert %ClientAcknowledger{on_success: {:nack, 10}} = TermStorage.get!(result.ack_ref)
-
-      {:error, message} =
-        opts
-        |> Keyword.put(:on_success, 1)
-        |> GoogleApiClient.init()
-
-      assert message ==
-               "expected :on_success to be a valid acknowledgement option, got: 1"
-
-      {:error, message} =
-        opts
-        |> Keyword.put(:on_success, {:nack, :foo})
-        |> GoogleApiClient.init()
-
-      assert message ==
-               "expected :on_success to be a valid acknowledgement option, got: {:nack, :foo}"
-    end
-
-    test ":on_failure should be a valid acknowledgement option" do
-      opts = [client: GoogleApiClient, subscription: "projects/foo/subscriptions/bar"]
-
-      assert {:ok, result} = opts |> Keyword.put(:on_failure, :ack) |> GoogleApiClient.init()
-      assert %ClientAcknowledger{on_failure: :ack} = TermStorage.get!(result.ack_ref)
-
-      assert {:ok, result} = opts |> Keyword.put(:on_failure, :nack) |> GoogleApiClient.init()
-      assert %ClientAcknowledger{on_failure: {:nack, 0}} = TermStorage.get!(result.ack_ref)
-
-      assert {:ok, result} =
-               opts |> Keyword.put(:on_failure, {:nack, 10}) |> GoogleApiClient.init()
-
-      assert %ClientAcknowledger{on_failure: {:nack, 10}} = TermStorage.get!(result.ack_ref)
-
-      {:error, message} =
-        opts
-        |> Keyword.put(:on_failure, 1)
-        |> GoogleApiClient.init()
-
-      assert message ==
-               "expected :on_failure to be a valid acknowledgement option, got: 1"
-
-      {:error, message} =
-        opts
-        |> Keyword.put(:on_failure, {:nack, :foo})
-        |> GoogleApiClient.init()
-
-      assert message ==
-               "expected :on_failure to be a valid acknowledgement option, got: {:nack, :foo}"
-    end
   end
 
-  describe "receive_messages/2" do
+  describe "receive_messages/3" do
     setup do
       test_pid = self()
 
@@ -295,7 +238,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       opts: base_opts
     } do
       {:ok, opts} = GoogleApiClient.init(base_opts)
-      [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
+      [message1, message2, message3] = GoogleApiClient.receive_messages(10, & &1, opts)
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -331,13 +274,13 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       {:ok, opts} = GoogleApiClient.init(base_opts)
 
       assert capture_log(fn ->
-               assert GoogleApiClient.receive_messages(10, opts) == []
+               assert GoogleApiClient.receive_messages(10, & &1, opts) == []
              end) =~ "[error] Unable to fetch events from Cloud Pub/Sub. Reason: "
     end
 
     test "send a projects.subscriptions.pull request with default options", %{opts: base_opts} do
       {:ok, opts} = GoogleApiClient.init(base_opts)
-      GoogleApiClient.receive_messages(10, opts)
+      GoogleApiClient.receive_messages(10, & &1, opts)
 
       assert_received {:http_request_called, %{body: body, url: url}}
       assert body == %{"maxMessages" => 10}
@@ -346,7 +289,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
     test "request with custom :return_immediately", %{opts: base_opts} do
       {:ok, opts} = base_opts |> Keyword.put(:return_immediately, true) |> GoogleApiClient.init()
-      GoogleApiClient.receive_messages(10, opts)
+      GoogleApiClient.receive_messages(10, & &1, opts)
 
       assert_received {:http_request_called, %{body: body, url: _url}}
       assert body["returnImmediately"] == true
@@ -354,7 +297,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
     test "request with custom :max_number_of_messages", %{opts: base_opts} do
       {:ok, opts} = base_opts |> Keyword.put(:max_number_of_messages, 5) |> GoogleApiClient.init()
-      GoogleApiClient.receive_messages(10, opts)
+      GoogleApiClient.receive_messages(10, & &1, opts)
 
       assert_received {:http_request_called, %{body: body, url: _url}}
       assert body["maxMessages"] == 5
@@ -491,7 +434,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
   end
 
-  describe "integration with BroadwayCloudPubSub.ClientAcknowledger" do
+  describe "integration with BroadwayCloudPubSub.Acknowledger" do
     setup do
       test_pid = self()
 
@@ -534,28 +477,28 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
        }}
     end
 
-    test "returns a list of Broadway.Message structs with #{inspect(ClientAcknowledger)} set", %{
+    test "returns a list of Broadway.Message structs with ack builder", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = GoogleApiClient.init(base_opts)
 
-      [message1, message2, message3] = GoogleApiClient.receive_messages(10, opts)
+      [message1, message2, message3] = GoogleApiClient.receive_messages(10, &{:ack, &1}, opts)
 
-      assert {ClientAcknowledger, ^ack_ref, _} = message1.acknowledger
-      assert {ClientAcknowledger, ^ack_ref, _} = message2.acknowledger
-      assert {ClientAcknowledger, ^ack_ref, _} = message3.acknowledger
+      assert {:ack, _} = message1.acknowledger
+      assert {:ack, _} = message2.acknowledger
+      assert {:ack, _} = message3.acknowledger
     end
 
     test "with defaults successful messages are acknowledged, and failed messages are ignored", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} = GoogleApiClient.init(base_opts)
+      {ack_ref, builder, opts} = init_with_ack_builder(base_opts)
 
-      messages = GoogleApiClient.receive_messages(10, opts)
+      messages = GoogleApiClient.receive_messages(10, builder, opts)
 
       {successful, failed} = Enum.split(messages, 1)
 
-      ClientAcknowledger.ack(ack_ref, successful, failed)
+      Acknowledger.ack(ack_ref, successful, failed)
 
       assert_receive {:acknowledge_dispatched, 1}
     end
@@ -563,14 +506,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "when :on_success is :noop, acknowledgement is a no-op", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} =
+      {ack_ref, builder, opts} =
         base_opts
         |> Keyword.put(:on_success, :noop)
-        |> GoogleApiClient.init()
+        |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
 
-      ClientAcknowledger.ack(ack_ref, messages, [])
+      Acknowledger.ack(ack_ref, messages, [])
 
       refute_receive {:acknowledge_dispatched, 3}
     end
@@ -578,14 +521,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "when :on_success is :nack, dispatches modifyAckDeadline", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} =
+      {ack_ref, builder, opts} =
         base_opts
         |> Keyword.put(:on_success, :nack)
-        |> GoogleApiClient.init()
+        |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
 
-      ClientAcknowledger.ack(ack_ref, messages, [])
+      Acknowledger.ack(ack_ref, messages, [])
 
       assert_receive {:modack_dispatched, 3, 0}
       refute_receive {:acknowledge_dispatched, 3}
@@ -594,25 +537,25 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "when :on_success is {:nack, integer}, dispatches modifyAckDeadline", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} =
+      {ack_ref, builder, opts} =
         base_opts
         |> Keyword.put(:on_success, {:nack, 300})
-        |> GoogleApiClient.init()
+        |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
 
-      ClientAcknowledger.ack(ack_ref, messages, [])
+      Acknowledger.ack(ack_ref, messages, [])
 
       assert_receive {:modack_dispatched, 3, 300}
       refute_receive {:acknowledge_dispatched, 3}
     end
 
     test "with default :on_failure, failed messages are ignored", %{opts: base_opts} do
-      {:ok, %{ack_ref: ack_ref} = opts} = GoogleApiClient.init(base_opts)
+      {ack_ref, builder, opts} = init_with_ack_builder(base_opts)
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
 
-      ClientAcknowledger.ack(ack_ref, [], messages)
+      Acknowledger.ack(ack_ref, [], messages)
 
       refute_receive {:acknowledge_dispatched, 3}
     end
@@ -620,14 +563,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "when :on_failure is :nack, dispatches modifyAckDeadline", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} =
+      {ack_ref, builder, opts} =
         base_opts
         |> Keyword.put(:on_failure, :nack)
-        |> GoogleApiClient.init()
+        |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
 
-      ClientAcknowledger.ack(ack_ref, [], messages)
+      Acknowledger.ack(ack_ref, [], messages)
 
       assert_receive {:modack_dispatched, 3, 0}
     end
@@ -635,14 +578,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "when :on_failure is {:nack, integer}, dispatches modifyAckDeadline", %{
       opts: base_opts
     } do
-      {:ok, %{ack_ref: ack_ref} = opts} =
+      {ack_ref, builder, opts} =
         base_opts
         |> Keyword.put(:on_failure, {:nack, 60})
-        |> GoogleApiClient.init()
+        |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, opts)
+      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
 
-      ClientAcknowledger.ack(ack_ref, [], messages)
+      Acknowledger.ack(ack_ref, [], messages)
 
       assert_receive {:modack_dispatched, 3, 60}
     end

@@ -28,7 +28,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     def init(opts), do: {:ok, opts}
 
     @impl Client
-    def receive_messages(amount, opts) do
+    def receive_messages(amount, _builder, opts) do
       messages = MessageServer.take_messages(opts[:message_server], amount)
       send(opts[:test_pid], {:messages_received, length(messages)})
 
@@ -94,7 +94,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     end
 
     @impl Client
-    def receive_messages(_amount, _opts), do: []
+    def receive_messages(_amount, _builder, _opts), do: []
   end
 
   defmodule Forwarder do
@@ -113,7 +113,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
   test "raise an ArgumentError with proper message when client options are invalid" do
     assert_raise(
       ArgumentError,
-      "invalid options given to BroadwayCloudPubSub.GoogleApiClient.init/1, expected :subscription to be a non empty string, got: nil",
+      "expected :subscription to be a non empty string, got: nil",
       fn ->
         BroadwayCloudPubSub.Producer.init(subscription: nil)
       end
