@@ -1,6 +1,6 @@
 # BroadwayCloudPubSub
 
-[![Build Status](https://travis-ci.org/dashbitco/broadway_cloud_pub_sub.svg?branch=master)](https://travis-ci.org/dashbitco/broadway_cloud_pub_sub)
+[![CI](https://github.com/dashbitco/broadway_cloud_pub_sub/actions/workflows/ci.yml/badge.svg)](https://github.com/dashbitco/broadway_cloud_pub_sub/actions/workflows/ci.yml)
 
 A Google Cloud Pub/Sub connector for [Broadway](https://github.com/dashbitco/broadway).
 
