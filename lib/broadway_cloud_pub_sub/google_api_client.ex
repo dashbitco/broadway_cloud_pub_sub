@@ -7,7 +7,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   import GoogleApi.PubSub.V1.Api.Projects
   alias Broadway.Message
-  alias BroadwayCloudPubSub.{Client, ClientAcknowledger}
+  alias BroadwayCloudPubSub.Client
   alias GoogleApi.PubSub.V1.Connection
 
   alias GoogleApi.PubSub.V1.Model.{
