@@ -36,13 +36,14 @@ defmodule BroadwayCloudPubSub.MixProject do
       {:google_api_pub_sub, "~> 0.11"},
       {:hackney, "~> 1.6"},
       {:goth, "~> 1.0", optional: true},
-      {:ex_doc, ">= 0.19.0", only: :docs}
+      {:ex_doc, "~> 0.23", only: :docs}
     ]
   end
 
   defp docs do
     [
       main: "BroadwayCloudPubSub.Producer",
+      nest_modules_by_prefix: [BroadwayCloudPubSub],
       source_ref: "v#{@version}",
       source_url: @repo_url,
       extras: [

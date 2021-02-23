@@ -68,7 +68,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   By default successful messages are acknowledged and failed messages are ignored.
   You can set `:on_success` and `:on_failure` when starting this producer,
-  or change them for each message through `c:Broadway.Message.configure_ack/2`.
+  or change them for each message through `Broadway.Message.configure_ack/2`.
 
   The following values are supported by both `:on_success` and `:on_failure`:
 
