@@ -449,7 +449,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         %{url: <<@subscription_base, action::binary>>} = req when action == ":acknowledge" ->
           %{"ackIds" => ack_ids} = Poison.decode!(req.body)
 
-          send(test_pid, {:acknowledge_dispatched, length(ack_ids)})
+          send(test_pid, {:acknowledge_dispatched, length(ack_ids), ack_ids})
 
           %Tesla.Env{status: 200, body: @empty_response}
 
@@ -500,7 +500,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       Acknowledger.ack(ack_ref, successful, failed)
 
-      assert_receive {:acknowledge_dispatched, 1}
+      assert_receive {:acknowledge_dispatched, 1, ["1"]}
     end
 
     test "when :on_success is :noop, acknowledgement is a no-op", %{
@@ -515,7 +515,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       Acknowledger.ack(ack_ref, messages, [])
 
-      refute_receive {:acknowledge_dispatched, 3}
+      refute_receive {:acknowledge_dispatched, 3, _}
     end
 
     test "when :on_success is :nack, dispatches modifyAckDeadline", %{
@@ -531,7 +531,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       Acknowledger.ack(ack_ref, messages, [])
 
       assert_receive {:modack_dispatched, 3, 0}
-      refute_receive {:acknowledge_dispatched, 3}
+      refute_receive {:acknowledge_dispatched, 3, _}
     end
 
     test "when :on_success is {:nack, integer}, dispatches modifyAckDeadline", %{
@@ -547,7 +547,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       Acknowledger.ack(ack_ref, messages, [])
 
       assert_receive {:modack_dispatched, 3, 300}
-      refute_receive {:acknowledge_dispatched, 3}
+      refute_receive {:acknowledge_dispatched, 3, _}
     end
 
     test "with default :on_failure, failed messages are ignored", %{opts: base_opts} do
@@ -557,7 +557,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       Acknowledger.ack(ack_ref, [], messages)
 
-      refute_receive {:acknowledge_dispatched, 3}
+      refute_receive {:acknowledge_dispatched, 3, _}
     end
 
     test "when :on_failure is :nack, dispatches modifyAckDeadline", %{

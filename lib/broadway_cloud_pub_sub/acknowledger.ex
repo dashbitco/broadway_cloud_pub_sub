@@ -9,7 +9,7 @@ defmodule BroadwayCloudPubSub.Acknowledger do
   Acknowledgement data for a `Broadway.Message`.
   """
   @type ack_data :: %{
-          :ack_id => String.t(),
+          :ack_id => Client.ack_id(),
           optional(:on_failure) => ack_option,
           optional(:on_success) => ack_option
         }
@@ -69,7 +69,7 @@ defmodule BroadwayCloudPubSub.Acknowledger do
   @doc """
   Returns an `acknowledger` to be put on a `Broadway.Message`.
   """
-  @spec builder(ack_ref) :: (Client.ack_id() -> {__MODULE__, ack_ref, Client.ack_id()})
+  @spec builder(ack_ref) :: (Client.ack_id() -> {__MODULE__, ack_ref, ack_data})
   def builder(ack_ref) do
     &{__MODULE__, ack_ref, %{ack_id: &1}}
   end
@@ -115,7 +115,7 @@ defmodule BroadwayCloudPubSub.Acknowledger do
   defp config_action(:on_failure, %{on_failure: action}), do: action
 
   defp extract_ack_id(message) do
-    {_, _, ack_id} = message.acknowledger
+    {_, _, %{ack_id: ack_id}} = message.acknowledger
     ack_id
   end
 
