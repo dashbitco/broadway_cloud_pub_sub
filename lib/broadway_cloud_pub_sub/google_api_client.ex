@@ -73,9 +73,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
          {:ok, pull_request} <- validate_pull_request(opts) do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
       connection_pool = Keyword.get(opts, :__connection_pool__, :default)
+      max_retry_length = Keyword.get(opts, :max_retry_length, 10_000)
 
       config = %{
         adapter: adapter,
+        max_retry_length: max_retry_length,
         connection_pool: connection_pool,
         subscription: subscription,
         token_generator: token_generator,
@@ -91,15 +93,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
     # retry up to 10 seconds
-    retry with: exponential_backoff() |> randomize |> expiry(10_000) do
-      {:ok, _} =
-        opts
-        |> conn!(recv_timeout: :infinity)
-        |> pubsub_projects_subscriptions_pull(
-          opts.subscription.projects_id,
-          opts.subscription.subscriptions_id,
-          body: pull_request
-        )
+    retry with: exponential_backoff() |> randomize |> expiry(opts[:max_retry_length]) do
+      opts
+      |> conn!(recv_timeout: :infinity)
+      |> pubsub_projects_subscriptions_pull(
+        opts.subscription.projects_id,
+        opts.subscription.subscriptions_id,
+        body: pull_request
+      )
     after
       result ->
         result
