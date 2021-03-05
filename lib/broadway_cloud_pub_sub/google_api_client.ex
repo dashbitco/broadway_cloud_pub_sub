@@ -20,6 +20,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   }
 
   alias Tesla.Adapter.Hackney
+
+  use Retry
+
   require Logger
 
   @behaviour Client
@@ -87,15 +90,27 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   def receive_messages(demand, ack_builder, opts) do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
-    opts
-    |> conn!(recv_timeout: :infinity)
-    |> pubsub_projects_subscriptions_pull(
-      opts.subscription.projects_id,
-      opts.subscription.subscriptions_id,
-      body: pull_request
-    )
-    |> handle_response(:receive_messages)
-    |> wrap_received_messages(ack_builder)
+    # retry up to 10 seconds
+    retry with: exponential_backoff() |> randomize |> expiry(10_000) do
+      {:ok, _} =
+        opts
+        |> conn!(recv_timeout: :infinity)
+        |> pubsub_projects_subscriptions_pull(
+          opts.subscription.projects_id,
+          opts.subscription.subscriptions_id,
+          body: pull_request
+        )
+    after
+      result ->
+        result
+        |> handle_response(:receive_messages)
+        |> wrap_received_messages(ack_builder)
+    else
+      error ->
+        error
+        |> handle_response(:receive_messages)
+        |> wrap_received_messages(ack_builder)
+    end
   end
 
   @impl Client

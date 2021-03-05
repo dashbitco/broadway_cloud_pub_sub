@@ -35,6 +35,7 @@ defmodule BroadwayCloudPubSub.MixProject do
       {:broadway, "~> 0.6.0"},
       {:google_api_pub_sub, "~> 0.11"},
       {:hackney, "~> 1.6"},
+      {:retry, "~> 0.14"},
       {:goth, "~> 1.0", optional: true},
       {:ex_doc, "~> 0.23", only: :docs}
     ]
@@ -55,6 +56,7 @@ defmodule BroadwayCloudPubSub.MixProject do
 
   defp package do
     %{
+      organization: "genesisblock",
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @repo_url}
     }
