@@ -156,12 +156,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     :ok
   end
 
-  defp inspect_error(%Tesla.Env{} = reason) do
-    # (__client__ includes the access token)
-    reason
-    |> Map.from_struct()
-    |> Map.delete(:__client__)
-    |> inspect()
+  defp inspect_error(%Tesla.Env{} = env) do
+    """
+    \nRequest to #{inspect(env.url)} failed with status #{inspect(env.status)}, got:
+
+    #{inspect(env.body)}
+    """
   end
 
   defp inspect_error(reason) do
