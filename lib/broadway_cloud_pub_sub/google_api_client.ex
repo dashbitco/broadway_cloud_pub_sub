@@ -92,50 +92,73 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   def receive_messages(demand, ack_builder, opts) do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
-    # retry up to 10 seconds
-    retry with: exponential_backoff() |> randomize |> expiry(opts[:max_retry_length]) do
-      opts
-      |> conn!(recv_timeout: :infinity)
-      |> pubsub_projects_subscriptions_pull(
-        opts.subscription.projects_id,
-        opts.subscription.subscriptions_id,
-        body: pull_request
-      )
-    after
-      result ->
-        result
-        |> handle_response(:receive_messages)
-        |> wrap_received_messages(ack_builder)
-    else
-      error ->
-        error
-        |> handle_response(:receive_messages)
-        |> wrap_received_messages(ack_builder)
-    end
+    # retry the request on request error
+    request_result =
+      retry with: exponential_backoff() |> randomize |> expiry(opts[:max_retry_length]) do
+        opts
+        |> conn!(recv_timeout: :infinity)
+        |> pubsub_projects_subscriptions_pull(
+          opts.subscription.projects_id,
+          opts.subscription.subscriptions_id,
+          body: pull_request
+        )
+      after
+        result ->
+          result
+      else
+        error ->
+          error
+      end
+
+    request_result
+    |> handle_response(:receive_messages)
+    |> wrap_received_messages(ack_builder)
   end
 
   @impl Client
   def acknowledge(ack_ids, opts) do
-    opts
-    |> conn!()
-    |> pubsub_projects_subscriptions_acknowledge(
-      opts.subscription.projects_id,
-      opts.subscription.subscriptions_id,
-      body: %AcknowledgeRequest{ackIds: ack_ids}
-    )
-    |> handle_response(:acknowledge)
+    # retry the request on request error
+    request_result =
+      retry with: exponential_backoff() |> randomize |> expiry(opts[:max_retry_length]) do
+        opts
+        |> conn!()
+        |> pubsub_projects_subscriptions_acknowledge(
+          opts.subscription.projects_id,
+          opts.subscription.subscriptions_id,
+          body: %AcknowledgeRequest{ackIds: ack_ids}
+        )
+      after
+        result ->
+          result
+      else
+        error ->
+          error
+      end
+
+    handle_response(request_result, :acknowledge)
   end
 
   @impl Client
   def put_deadline(ack_ids, deadline, opts) when deadline in 0..600 do
-    opts
-    |> conn!()
-    |> pubsub_projects_subscriptions_modify_ack_deadline(
-      opts.subscription.projects_id,
-      opts.subscription.subscriptions_id,
-      body: %ModifyAckDeadlineRequest{ackDeadlineSeconds: deadline, ackIds: ack_ids}
-    )
-    |> handle_response(:put_deadline)
+    # retry the request on request error
+    request_result =
+      retry with: exponential_backoff() |> randomize |> expiry(opts[:max_retry_length]) do
+        opts
+        |> conn!()
+        |> pubsub_projects_subscriptions_modify_ack_deadline(
+          opts.subscription.projects_id,
+          opts.subscription.subscriptions_id,
+          body: %ModifyAckDeadlineRequest{ackDeadlineSeconds: deadline, ackIds: ack_ids}
+        )
+      after
+        result ->
+          result
+      else
+        error ->
+          error
+      end
+
+    handle_response(request_result, :put_deadline)
   end
 
   # The typespec for PullResponse is too strict. If Pub/Sub returns an empty
