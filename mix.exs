@@ -56,7 +56,6 @@ defmodule BroadwayCloudPubSub.MixProject do
 
   defp package do
     %{
-      organization: "genesisblock",
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @repo_url}
     }
