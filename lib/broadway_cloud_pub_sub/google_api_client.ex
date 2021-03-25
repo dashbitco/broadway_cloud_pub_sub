@@ -136,18 +136,36 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp handle_response({:ok, _}, _), do: :ok
 
   defp handle_response({:error, reason}, :receive_messages) do
-    Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect(reason)}")
+    Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect_error(reason)}")
     []
   end
 
   defp handle_response({:error, reason}, :acknowledge) do
-    Logger.error("Unable to acknowledge messages with Cloud Pub/Sub, reason: #{inspect(reason)}")
+    Logger.error(
+      "Unable to acknowledge messages with Cloud Pub/Sub, reason: #{inspect_error(reason)}"
+    )
+
     :ok
   end
 
   defp handle_response({:error, reason}, :put_deadline) do
-    Logger.error("Unable to put new ack deadline with Cloud Pub/Sub, reason: #{inspect(reason)}")
+    Logger.error(
+      "Unable to put new ack deadline with Cloud Pub/Sub, reason: #{inspect_error(reason)}"
+    )
+
     :ok
+  end
+
+  defp inspect_error(%Tesla.Env{} = env) do
+    """
+    \nRequest to #{inspect(env.url)} failed with status #{inspect(env.status)}, got:
+
+    #{inspect(env.body)}
+    """
+  end
+
+  defp inspect_error(reason) do
+    inspect(reason)
   end
 
   defp wrap_received_messages(received_messages, ack_builder) do
