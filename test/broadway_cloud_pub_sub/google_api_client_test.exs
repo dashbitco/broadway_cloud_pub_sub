@@ -272,8 +272,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         %Tesla.Env{status: 403, body: %{}}
       end)
 
-      new_opts = Keyword.put(base_opts, :retry, delay: 10)
-      {:ok, opts} = GoogleApiClient.init(new_opts)
+      {:ok, opts} = GoogleApiClient.init(base_opts)
 
       assert capture_log(fn ->
                assert GoogleApiClient.receive_messages(10, & &1, opts) == []
