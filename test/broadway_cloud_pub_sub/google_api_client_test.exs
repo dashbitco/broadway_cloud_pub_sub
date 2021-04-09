@@ -1,4 +1,5 @@
 defmodule BroadwayCloudPubSub.GoogleApiClientTest do
+  require Logger
   use ExUnit.Case
 
   import ExUnit.CaptureLog
@@ -271,7 +272,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         %Tesla.Env{status: 403, body: %{}}
       end)
 
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      new_opts = Keyword.put(base_opts, :retry, delay: 10)
+      {:ok, opts} = GoogleApiClient.init(new_opts)
 
       assert capture_log(fn ->
                assert GoogleApiClient.receive_messages(10, & &1, opts) == []
@@ -334,6 +336,41 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       assert body == %{"ackIds" => ["1", "2", "3"]}
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
+    end
+
+    test "if the request fails, retry a few times then returns :ok and logs an error", %{
+      pid: pid,
+      opts: base_opts
+    } do
+      Tesla.Mock.mock(fn %{method: :post} = req ->
+        body_object = Poison.decode!(req.body)
+        send(pid, {:http_request_called, %{url: req.url, body: body_object}})
+        {:error, %Tesla.Env{status: 503}}
+      end)
+
+      new_opts =
+        Keyword.put(base_opts, :retry,
+          delay: 10,
+          should_retry: fn
+            {:ok, _resp} ->
+              Logger.info("not retrying")
+              false
+
+            {:error, _err} ->
+              Logger.warn("retrying")
+              true
+          end
+        )
+
+      {:ok, opts} = GoogleApiClient.init(new_opts)
+
+      acknowledge_assert = fn -> GoogleApiClient.acknowledge(["1", "2"], opts) == :ok end
+
+      refute capture_log(acknowledge_assert) =~ "[info]  not retrying"
+      assert capture_log(acknowledge_assert) =~ "[warn]  retrying"
+
+      assert capture_log(acknowledge_assert) =~
+               "[error] Unable to acknowledge messages with Cloud Pub/Sub, reason:"
     end
 
     test "if the request fails, returns :ok and logs an error", %{pid: pid, opts: base_opts} do
