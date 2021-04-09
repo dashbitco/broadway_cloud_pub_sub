@@ -57,6 +57,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   defp should_retry?({:ok, _resp}), do: false
   defp should_retry?({:error, %{status: code}}) when code in @retry_codes, do: true
+  defp should_retry?({:error, _reason}), do: true
 
   @impl Client
   def prepare_to_connect(module, opts) do
