@@ -83,7 +83,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
       retry =
         [should_retry: &should_retry?/1]
-        |> Keyword.merge(Keyword.get(opts, :retry, @retry_opts))
+        |> Keyword.merge(@retry_opts)
+        |> Keyword.merge(Keyword.get(opts, :retry, []))
 
       config = %{
         adapter: adapter,
