@@ -31,14 +31,16 @@ defmodule BroadwayCloudPubSub.Producer do
     * `:pool_opts` - Optional. A set of additional options to override the
        default `:hackney_pool` configuration options.
 
-    * `:retry` - Optional. A request retrier configuration tuple`
+    * `:retry` - Optional. Configuration for retries.
+
       Any Google PubSub request with error response will be retried a few times before returning the error.
+
         - `:delay` - How long to wait (milliseconds) before retrying (positive integer, defaults to 500)
         - `:max_retries` - Maximum number of retries (non-negative integer, defaults to 10)
-        - `:should_retry` - Function to determine if request should be retried based on the response
-           default behaviour: Retries any error responses, and responses with status in [408, 500, 502, 503, 504, 522, 524]
+        - `:should_retry` - Function to determine if request should be retried based on the response.
+           Defaults to retrying all errors and responses with status 408, 500, 502, 503, 504, 522, and 524
 
-        Example: `[delay: 500, max_retries: 10]`
+      See `Tesla.Middleware.Retry` for more information.
 
   ## Acknowledger options
 
