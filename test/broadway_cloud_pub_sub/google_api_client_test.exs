@@ -336,6 +336,29 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
+    test "retries", %{opts: base_opts} do
+      test_pid = self()
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      Tesla.Mock.mock(fn %{method: :post} ->
+        if Agent.get_and_update(counter, &{&1, &1 + 1}) < 3 do
+          send(test_pid, :pong)
+          {:error, %Tesla.Env{status: 503}}
+        else
+          {:ok, %Tesla.Env{status: 200, body: "{}"}}
+        end
+      end)
+
+      opts = Keyword.put(base_opts, :retry, max_retries: 3)
+      {:ok, opts} = GoogleApiClient.init(opts)
+      assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
+
+      assert_received :pong
+      assert_received :pong
+      assert_received :pong
+      refute_received _
+    end
+
     test "if the request fails, returns :ok and logs an error", %{pid: pid, opts: base_opts} do
       Tesla.Mock.mock(fn %{method: :post} = req ->
         body_object = Poison.decode!(req.body)

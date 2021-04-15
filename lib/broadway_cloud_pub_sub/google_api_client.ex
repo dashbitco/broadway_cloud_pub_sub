@@ -28,9 +28,13 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
+  @retry_codes [408, 500, 502, 503, 504, 522, 524]
+  @retry_opts [delay: 500, max_retries: 10]
+
   defp conn!(config, adapter_opts \\ []) do
     %{
       adapter: adapter,
+      retry: retry,
       connection_pool: connection_pool,
       token_generator: {mod, fun, args}
     } = config
@@ -39,15 +43,21 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
     adapter_opts = Keyword.put(adapter_opts, :pool, connection_pool)
 
+    middleware = [{Tesla.Middleware.Retry, retry}]
+
     token
     |> Connection.new()
-    |> override_tesla_adapter({adapter, adapter_opts})
+    |> override_tesla_client({adapter, adapter_opts}, middleware)
   end
 
-  defp override_tesla_adapter(client, adapter) do
-    %{adapter: adapter} = Tesla.client([], adapter)
-    %{client | adapter: adapter}
+  defp override_tesla_client(client, adapter, middleware) do
+    %{adapter: adapter, pre: pre} = Tesla.client(middleware, adapter)
+    %{client | adapter: adapter, pre: client.pre ++ pre}
   end
+
+  defp should_retry?({:error, %{status: code}}), do: code in @retry_codes
+  defp should_retry?({:error, _reason}), do: true
+  defp should_retry?(_other), do: false
 
   @impl Client
   def prepare_to_connect(module, opts) do
@@ -71,8 +81,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
       connection_pool = Keyword.get(opts, :__connection_pool__, :default)
 
+      retry =
+        [should_retry: &should_retry?/1]
+        |> Keyword.merge(@retry_opts)
+        |> Keyword.merge(Keyword.get(opts, :retry, []))
+
       config = %{
         adapter: adapter,
+        retry: retry,
         connection_pool: connection_pool,
         subscription: subscription,
         token_generator: token_generator,
