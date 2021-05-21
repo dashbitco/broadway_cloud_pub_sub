@@ -338,53 +338,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
-    test "retries with error response", %{opts: opts} do
-      test_pid = self()
-      max_retries = opts[:retry][:max_retries]
-      {:ok, counter} = Agent.start_link(fn -> 0 end)
-
-      Tesla.Mock.mock(fn %{method: :post} ->
-        if Agent.get_and_update(counter, &{&1, &1 + 1}) < max_retries do
-          send(test_pid, :pong)
-          {:error, %Tesla.Env{status: 503}}
-        else
-          {:ok, %Tesla.Env{status: 200, body: "{}"}}
-        end
-      end)
-
-      {:ok, opts} = GoogleApiClient.init(opts)
-      assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
-
-      assert_received :pong
-      assert_received :pong
-      assert_received :pong
-      refute_received _
-    end
-
-    test "retries with ok response", %{opts: opts} do
-      test_pid = self()
-      max_retries = opts[:retry][:max_retries]
-      {:ok, counter} = Agent.start_link(fn -> 0 end)
-
-      Tesla.Mock.mock(fn %{method: :post} ->
-        if Agent.get_and_update(counter, &{&1, &1 + 1}) < max_retries do
-          send(test_pid, :pong)
-          {:ok, %Tesla.Env{status: 502}}
-        else
-          {:ok, %Tesla.Env{status: 200, body: "{}"}}
-        end
-      end)
-
-      {:ok, opts} = GoogleApiClient.init(opts)
-      assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
-
-      assert_received :pong
-      assert_received :pong
-      assert_received :pong
-      refute_received _
-    end
-
-    test "retries with a real fake connection", %{opts: base_opts} do
+    test "retries a few times in case of error response", %{opts: base_opts} do
       test_pid = self()
       max_retries = base_opts[:retry][:max_retries]
       {:ok, counter} = Agent.start_link(fn -> 0 end)
