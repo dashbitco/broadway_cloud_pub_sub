@@ -229,7 +229,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          retry: [max_retries: 3, delay: 1]
         ]
       }
     end
@@ -320,7 +321,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          retry: [max_retries: 3, delay: 1]
         ]
       }
     end
@@ -336,20 +338,23 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
-    test "retries", %{opts: base_opts} do
+    test "retries a few times in case of error response", %{opts: base_opts} do
       test_pid = self()
+      max_retries = base_opts[:retry][:max_retries]
       {:ok, counter} = Agent.start_link(fn -> 0 end)
+      bypass = Bypass.open(port: 9999)
 
-      Tesla.Mock.mock(fn %{method: :post} ->
-        if Agent.get_and_update(counter, &{&1, &1 + 1}) < 3 do
+      Bypass.expect(bypass, fn conn ->
+        if Agent.get_and_update(counter, &{&1, &1 + 1}) < max_retries do
           send(test_pid, :pong)
-          {:error, %Tesla.Env{status: 503}}
+          Plug.Conn.send_resp(conn, 503, "oops")
         else
-          {:ok, %Tesla.Env{status: 200, body: "{}"}}
+          Plug.Conn.send_resp(conn, 200, "{}")
         end
       end)
 
-      opts = Keyword.put(base_opts, :retry, max_retries: 3)
+      opts = Keyword.put(base_opts, :__internal_tesla_adapter__, Tesla.Adapter.Httpc)
+      opts = Keyword.put(opts, :middleware, [{Tesla.Middleware.BaseUrl, "http://localhost:9999"}])
       {:ok, opts} = GoogleApiClient.init(opts)
       assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
 
@@ -391,7 +396,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         opts: [
           __internal_tesla_adapter__: Tesla.Mock,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          retry: [max_retries: 3, delay: 1]
         ]
       }
     end
@@ -495,7 +501,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
            client: GoogleApiClient,
            __internal_tesla_adapter__: Tesla.Mock,
            subscription: "projects/foo/subscriptions/bar",
-           token_generator: {__MODULE__, :generate_token, []}
+           token_generator: {__MODULE__, :generate_token, []},
+           retry: [max_retries: 3, delay: 1]
          ]
        }}
     end

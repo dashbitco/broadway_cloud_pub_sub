@@ -42,6 +42,9 @@ defmodule BroadwayCloudPubSub.Producer do
 
       See `Tesla.Middleware.Retry` for more information.
 
+    * `:middleware` - Optional. List of custom Tesla middleware
+      Example: `[{Tesla.Middleware.BaseUrl, "https://example.com"}]`
+
   ## Acknowledger options
 
   These options apply to `BroadwayCloudPubSub.GoogleApiClient` acknowledgement API:
