@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2021-07-19
+
+### Changed
+
+- Remove sensitive details from error log messages
+
+### Added
+
+- A new `:middleware` option to pass a list of custom Tesla middleware
+- Failures to ack are now automatically retried. Retries can be customised via the new `:retry` option
+
 ## [0.6.2] - 2021-02-24
 
 ### Changed
