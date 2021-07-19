@@ -353,7 +353,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         end
       end)
 
-      opts = Keyword.put(base_opts, :__internal_tesla_adapter__, Tesla.Adapter.Httpc)
+      opts = Keyword.put(base_opts, :__internal_tesla_adapter__, Tesla.Adapter.Hackney)
       opts = Keyword.put(opts, :middleware, [{Tesla.Middleware.BaseUrl, "http://localhost:9999"}])
       {:ok, opts} = GoogleApiClient.init(opts)
       assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
