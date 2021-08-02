@@ -27,6 +27,7 @@ defmodule BroadwayCloudPubSub.Producer do
     * `:token_generator` - Optional. An MFArgs tuple that will be called before each request
       to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
       Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
+      See "Custom token generator" section below for more information.
 
     * `:pool_opts` - Optional. A set of additional options to override the
        default `:hackney_pool` configuration options.
@@ -44,6 +45,26 @@ defmodule BroadwayCloudPubSub.Producer do
 
     * `:middleware` - Optional. List of custom Tesla middleware
       Example: `[{Tesla.Middleware.BaseUrl, "https://example.com"}]`
+
+  ### Custom token generator
+
+  A custom token generator can be given as a MFArgs tuple.
+
+  For example, define a `MyApp.fetch_token/0` function:
+
+      defmodule MyApp do
+        @scope "https://www.googleapis.com/auth/pubsub"
+
+        def fetch_token() do
+          with {:ok, token} <- Goth.Token.for_scope(@scope)
+            {:ok, token.token}
+          end
+        end
+      end
+
+  and configure the producer to use it:
+
+      token_generator: {MyApp, :fetch_token, []}
 
   ## Acknowledger options
 
