@@ -74,21 +74,20 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert GoogleApiClient.init(subscription: :an_atom) ==
                {:error, "expected :subscription to be a non empty string, got: :an_atom"}
 
-      assert {:ok, %{subscription: subscription}} =
-               GoogleApiClient.init(subscription: "projects/foo/subscriptions/bar")
+      assert {:ok, %{subscription: subscription}} = GoogleApiClient.init(default_opts())
 
       assert subscription.projects_id == "foo"
       assert subscription.subscriptions_id == "bar"
     end
 
     test ":return_immediately is nil without default value" do
-      {:ok, result} = GoogleApiClient.init(subscription: "projects/foo/subscriptions/bar")
+      {:ok, result} = GoogleApiClient.init(default_opts())
 
       assert is_nil(result.pull_request.returnImmediately)
     end
 
     test ":return immediately should be a boolean" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
+      opts = default_opts()
 
       {:ok, result} = opts |> Keyword.put(:return_immediately, true) |> GoogleApiClient.init()
       assert result.pull_request.returnImmediately == true
@@ -112,13 +111,13 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
 
     test ":max_number_of_messages is optional with default value 10" do
-      {:ok, result} = GoogleApiClient.init(subscription: "projects/foo/subscriptions/bar")
+      {:ok, result} = GoogleApiClient.init(default_opts())
 
       assert result.pull_request.maxMessages == 10
     end
 
     test ":max_number_of_messages should be a positive integer" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
+      opts = default_opts()
 
       {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 1) |> GoogleApiClient.init()
       assert result.pull_request.maxMessages == 1
@@ -138,7 +137,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
 
     test ":scope should be a string or tuple" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
+      opts = default_opts()
 
       {:ok, result} = opts |> Keyword.put(:scope, "https://example.com") |> GoogleApiClient.init()
 
@@ -165,7 +164,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
 
     test ":token_generator defaults to using Goth with default scope" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
+      opts = default_opts()
 
       {:ok, result} = GoogleApiClient.init(opts)
 
@@ -175,7 +174,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
 
     test ":token_generator should be a tuple {Mod, Fun, Args}" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
+      opts = default_opts()
 
       token_generator = {Token, :fetch, []}
 
@@ -203,7 +202,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
 
     test ":token_generator supercedes :scope validation" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
+      opts = default_opts()
 
       assert {:ok, _result} =
                opts
@@ -353,9 +352,17 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         end
       end)
 
-      opts = Keyword.put(base_opts, :__internal_tesla_adapter__, Tesla.Adapter.Hackney)
-      opts = Keyword.put(opts, :middleware, [{Tesla.Middleware.BaseUrl, "http://localhost:9999"}])
+      opts =
+        base_opts
+        |> Keyword.put(:__internal_tesla_adapter__, Tesla.Adapter.Finch)
+        |> Keyword.put(:middleware, [{Tesla.Middleware.BaseUrl, "http://localhost:9999"}])
+
+      {children, opts} = GoogleApiClient.prepare_to_connect(RetryTest, opts)
+
+      Enum.each(children, &start_supervised!/1)
+
       {:ok, opts} = GoogleApiClient.init(opts)
+
       assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
 
       assert_received :pong
@@ -430,36 +437,6 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert capture_log(fn ->
                assert GoogleApiClient.put_deadline(["1", "2"], 60, opts) == :ok
              end) =~ "[error] Unable to put new ack deadline with Cloud Pub/Sub, reason: "
-    end
-  end
-
-  describe "prepare_to_connect/2" do
-    test "returns a child_spec for :hackney_pool" do
-      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, pool_size: 2)
-
-      assert name = opts[:__connection_pool__]
-      assert pool_spec == :hackney_pool.child_spec(name, max_connections: 2)
-    end
-
-    test "with extra options" do
-      pool_opts = [timeout: 20_000]
-      expected_pool_opts = Keyword.put(pool_opts, :max_connections, 5)
-      client_opts = [pool_size: 5, pool_opts: pool_opts]
-
-      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, client_opts)
-
-      assert name = opts[:__connection_pool__]
-      assert pool_spec == :hackney_pool.child_spec(name, expected_pool_opts)
-    end
-
-    test "max_connections takes precedence over pool_size" do
-      pool_opts = [timeout: 20_000, max_connections: 100]
-      client_opts = [pool_size: 5, pool_opts: pool_opts]
-
-      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, client_opts)
-
-      assert name = opts[:__connection_pool__]
-      assert pool_spec == :hackney_pool.child_spec(name, pool_opts)
     end
   end
 
@@ -622,4 +599,6 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
   end
 
   def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
+
+  def default_opts, do: [subscription: "projects/foo/subscriptions/bar"]
 end

@@ -49,54 +49,6 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     end
   end
 
-  defmodule FakePool do
-    use GenServer
-
-    def start_link(opts) do
-      GenServer.start_link(__MODULE__, opts, name: opts[:name])
-    end
-
-    def init(opts) do
-      send(opts[:test_pid], {:pool_started, opts[:name]})
-
-      {:ok, opts}
-    end
-
-    def child_spec(name, opts) do
-      {__MODULE__, Keyword.put(opts, :name, name)}
-    end
-
-    def pool_size(pool), do: GenServer.call(pool, :pool_size)
-
-    def handle_call(:pool_size, _, opts) do
-      {:reply, opts[:pool_size], opts}
-    end
-  end
-
-  defmodule FakePoolClient do
-    alias BroadwayCloudPubSub.Client
-
-    @behaviour Client
-
-    @impl Client
-    def prepare_to_connect(module, opts) do
-      pool = Module.concat(module, FakePool)
-      pool_spec = FakePool.child_spec(pool, opts)
-
-      {[pool_spec], Keyword.put(opts, :__connection_pool__, pool)}
-    end
-
-    @impl Client
-    def init(opts) do
-      send(opts[:test_pid], {:connection_pool_set, opts[:__connection_pool__]})
-
-      {:ok, opts}
-    end
-
-    @impl Client
-    def receive_messages(_amount, _builder, _opts), do: []
-  end
-
   defmodule Forwarder do
     use Broadway
 
@@ -211,30 +163,6 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     assert_receive {:messages_deleted, 10}
 
     stop_broadway(pid)
-  end
-
-  describe "calling Client.prepare_to_connect/2" do
-    test "with default options, pool_size is twice the producers" do
-      {:ok, message_server} = MessageServer.start_link()
-      {:ok, pid} = start_broadway(message_server, FakePoolClient)
-
-      assert_receive {:pool_started, pool}, 500
-      assert_receive {:connection_pool_set, ^pool}, 500
-      assert FakePool.pool_size(pool) == 2
-
-      stop_broadway(pid)
-    end
-
-    test "with user-defined pool_size" do
-      {:ok, message_server} = MessageServer.start_link()
-      {:ok, pid} = start_broadway(message_server, FakePoolClient, pool_size: 20)
-
-      assert_receive {:pool_started, pool}, 500
-      assert_receive {:connection_pool_set, ^pool}, 500
-      assert FakePool.pool_size(pool) == 20
-
-      stop_broadway(pid)
-    end
   end
 
   defp start_broadway(message_server, client \\ FakeClient, extra_opts \\ []) do

@@ -19,7 +19,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     ReceivedMessage
   }
 
-  alias Tesla.Adapter.Hackney
+  alias Tesla.Adapter.Finch, as: FinchAdapter
   require Logger
 
   @behaviour Client
@@ -31,17 +31,14 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   @retry_codes [408, 500, 502, 503, 504, 522, 524]
   @retry_opts [delay: 500, max_retries: 10]
 
-  defp conn!(config, adapter_opts \\ []) do
+  defp conn!(config, adapter_opts) do
     %{
       adapter: adapter,
       middleware: middleware,
-      connection_pool: connection_pool,
       token_generator: {mod, fun, args}
     } = config
 
     {:ok, token} = apply(mod, fun, args)
-
-    adapter_opts = Keyword.put(adapter_opts, :pool, connection_pool)
 
     token
     |> Connection.new()
@@ -58,17 +55,18 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   defp should_retry?(_other), do: false
 
   @impl Client
-  def prepare_to_connect(module, opts) do
-    pool_name = Module.concat(module, ConnectionPool)
+  def prepare_to_connect(name, producer_opts) do
+    finch_name = Module.concat(name, Finch)
 
-    pool_opts =
-      opts
-      |> Keyword.get(:pool_opts, [])
-      |> Keyword.put_new_lazy(:max_connections, fn -> opts[:pool_size] end)
+    producer_opts =
+      producer_opts
+      |> Keyword.put_new(:__internal_tesla_adapter__, FinchAdapter)
+      |> Keyword.put_new(:__internal_tesla_adapter_opts__,
+        name: finch_name,
+        receive_timeout: :infinity
+      )
 
-    pool_spec = :hackney_pool.child_spec(pool_name, pool_opts)
-
-    {[pool_spec], Keyword.put(opts, :__connection_pool__, pool_name)}
+    {[{Finch, name: finch_name}], producer_opts}
   end
 
   @impl Client
@@ -76,9 +74,6 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     with {:ok, subscription} <- validate_subscription(opts),
          {:ok, token_generator} <- validate_token_opts(opts),
          {:ok, pull_request} <- validate_pull_request(opts) do
-      adapter = Keyword.get(opts, :__internal_tesla_adapter__, Hackney)
-      connection_pool = Keyword.get(opts, :__connection_pool__, :default)
-
       retry_opts =
         [should_retry: &should_retry?/1]
         |> Keyword.merge(@retry_opts)
@@ -87,9 +82,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
       middleware = [{Tesla.Middleware.Retry, retry_opts}] ++ Keyword.get(opts, :middleware, [])
 
       config = %{
-        adapter: adapter,
+        adapter: opts[:__internal_tesla_adapter__],
+        adapter_opts: opts[:__internal_tesla_adapter_opts__],
         middleware: middleware,
-        connection_pool: connection_pool,
         subscription: subscription,
         token_generator: token_generator,
         pull_request: pull_request
@@ -104,7 +99,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     pull_request = put_max_number_of_messages(opts.pull_request, demand)
 
     opts
-    |> conn!(recv_timeout: :infinity)
+    |> conn!(opts.adapter_opts)
     |> pubsub_projects_subscriptions_pull(
       opts.subscription.projects_id,
       opts.subscription.subscriptions_id,
@@ -117,7 +112,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   @impl Client
   def acknowledge(ack_ids, opts) do
     opts
-    |> conn!()
+    |> conn!(opts.adapter_opts)
     |> pubsub_projects_subscriptions_acknowledge(
       opts.subscription.projects_id,
       opts.subscription.subscriptions_id,
@@ -129,7 +124,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
   @impl Client
   def put_deadline(ack_ids, deadline, opts) when deadline in 0..600 do
     opts
-    |> conn!()
+    |> conn!(opts.adapter_opts)
     |> pubsub_projects_subscriptions_modify_ack_deadline(
       opts.subscription.projects_id,
       opts.subscription.subscriptions_id,

@@ -28,9 +28,6 @@ defmodule BroadwayCloudPubSub.Producer do
       to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
       Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
 
-    * `:pool_opts` - Optional. A set of additional options to override the
-       default `:hackney_pool` configuration options.
-
     * `:retry` - Optional. Configuration for retries.
 
       Any Google PubSub request with error response will be retried a few times before returning the error.
@@ -68,9 +65,6 @@ defmodule BroadwayCloudPubSub.Producer do
       messages. Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs. Default
       is `BroadwayCloudPubSub.GoogleApiClient`.
-
-    * `:pool_size` - Optional. The size of the connection pool. Default is
-       twice the producer concurrency.
 
     * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
       waits before making a request for more messages. Default is 5000.
@@ -148,11 +142,6 @@ defmodule BroadwayCloudPubSub.Producer do
   def prepare_for_start(module, opts) do
     {me, my_opts} = opts[:producer][:module]
     client = Keyword.get(my_opts, :client, @default_client)
-
-    my_opts =
-      Keyword.put_new_lazy(my_opts, :pool_size, fn ->
-        2 * opts[:producer][:concurrency]
-      end)
 
     {specs, my_opts} = prepare_to_connect(module, client, my_opts)
 
