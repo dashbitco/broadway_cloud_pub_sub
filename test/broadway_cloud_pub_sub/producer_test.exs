@@ -122,7 +122,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
   test "receive messages when the queue has less than the demand" do
     {:ok, message_server} = MessageServer.start_link()
-    {:ok, pid} = start_broadway(message_server)
+    name = start_broadway(message_server)
 
     MessageServer.push_messages(message_server, 1..5)
 
@@ -132,13 +132,13 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       assert_receive {:message_handled, ^msg}
     end
 
-    stop_broadway(pid)
+    stop_broadway(name)
   end
 
   test "keep receiving messages when the queue has more than the demand" do
     {:ok, message_server} = MessageServer.start_link()
     MessageServer.push_messages(message_server, 1..20)
-    {:ok, pid} = start_broadway(message_server)
+    name = start_broadway(message_server)
 
     assert_receive {:messages_received, 10}
 
@@ -160,12 +160,12 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
     assert_receive {:messages_received, 0}
 
-    stop_broadway(pid)
+    stop_broadway(name)
   end
 
   test "keep trying to receive new messages when the queue is empty" do
     {:ok, message_server} = MessageServer.start_link()
-    {:ok, pid} = start_broadway(message_server)
+    name = start_broadway(message_server)
 
     MessageServer.push_messages(message_server, [13])
     assert_receive {:messages_received, 1}
@@ -179,61 +179,61 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     assert_receive {:message_handled, 14}
     assert_receive {:message_handled, 15}
 
-    stop_broadway(pid)
+    stop_broadway(name)
   end
 
   test "stop trying to receive new messages after start draining" do
     {:ok, message_server} = MessageServer.start_link()
-    {:ok, pid} = start_broadway(message_server)
+    name = start_broadway(message_server)
 
-    [producer] = Broadway.producer_names(pid)
+    [producer] = Broadway.producer_names(name)
 
     assert_receive {:messages_received, 0}
 
     :sys.suspend(producer)
     flush_messages_received()
-    task = Task.async(fn -> Broadway.Producer.drain(producer) end)
+    task = Task.async(fn -> Broadway.Topology.ProducerStage.drain(producer) end)
     :sys.resume(producer)
     Task.await(task)
 
     refute_receive {:messages_received, _}, 10
 
-    stop_broadway(pid)
+    stop_broadway(name)
   end
 
   test "delete acknowledged messages" do
     {:ok, message_server} = MessageServer.start_link()
-    {:ok, pid} = start_broadway(message_server)
+    name = start_broadway(message_server)
 
     MessageServer.push_messages(message_server, 1..20)
 
     assert_receive {:messages_deleted, 10}
     assert_receive {:messages_deleted, 10}
 
-    stop_broadway(pid)
+    stop_broadway(name)
   end
 
   describe "calling Client.prepare_to_connect/2" do
     test "with default options, pool_size is twice the producers" do
       {:ok, message_server} = MessageServer.start_link()
-      {:ok, pid} = start_broadway(message_server, FakePoolClient)
+      name = start_broadway(message_server, FakePoolClient)
 
       assert_receive {:pool_started, pool}, 500
       assert_receive {:connection_pool_set, ^pool}, 500
       assert FakePool.pool_size(pool) == 2
 
-      stop_broadway(pid)
+      stop_broadway(name)
     end
 
     test "with user-defined pool_size" do
       {:ok, message_server} = MessageServer.start_link()
-      {:ok, pid} = start_broadway(message_server, FakePoolClient, pool_size: 20)
+      name = start_broadway(message_server, FakePoolClient, pool_size: 20)
 
       assert_receive {:pool_started, pool}, 500
       assert_receive {:connection_pool_set, ^pool}, 500
       assert FakePool.pool_size(pool) == 20
 
-      stop_broadway(pid)
+      stop_broadway(name)
     end
   end
 
@@ -246,35 +246,41 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         message_server: message_server
       )
 
-    Broadway.start_link(
-      Forwarder,
-      name: new_unique_name(),
-      context: %{test_pid: self()},
-      producer: [
-        module: {
-          BroadwayCloudPubSub.Producer,
-          producer_opts
-        },
-        concurrency: 1
-      ],
-      processors: [
-        default: [concurrency: 1]
-      ],
-      batchers: [
-        default: [
-          batch_size: 10,
-          batch_timeout: 50,
+    name = new_unique_name()
+
+    {:ok, _pid} =
+      Broadway.start_link(
+        Forwarder,
+        name: name,
+        context: %{test_pid: self()},
+        producer: [
+          module: {
+            BroadwayCloudPubSub.Producer,
+            producer_opts
+          },
           concurrency: 1
+        ],
+        processors: [
+          default: [concurrency: 1]
+        ],
+        batchers: [
+          default: [
+            batch_size: 10,
+            batch_timeout: 50,
+            concurrency: 1
+          ]
         ]
-      ]
-    )
+      )
+
+    name
   end
 
   defp new_unique_name() do
     :"Broadway#{System.unique_integer([:positive, :monotonic])}"
   end
 
-  defp stop_broadway(pid) do
+  defp stop_broadway(name) when is_atom(name) do
+    pid = Process.whereis(name)
     ref = Process.monitor(pid)
     Process.exit(pid, :normal)
 

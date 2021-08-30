@@ -40,7 +40,7 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
     test "with valid client, returns config with default actions" do
       assert {:ok, ref} = Acknowledger.init(CallerClient, :config, [])
 
-      assert Broadway.TermStorage.get!(ref) ==
+      assert Acknowledger.get_config(ref) ==
                %Acknowledger{
                  client: CallerClient,
                  client_config: :config,
@@ -53,7 +53,7 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
       assert {:ok, ref} =
                Acknowledger.init(CallerClient, :config, on_success: :noop, on_failure: :nack)
 
-      assert Broadway.TermStorage.get!(ref) ==
+      assert Acknowledger.get_config(ref) ==
                %Acknowledger{
                  client: CallerClient,
                  client_config: :config,

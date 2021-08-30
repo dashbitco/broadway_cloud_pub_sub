@@ -1,6 +1,6 @@
 defmodule BroadwayCloudPubSub.Acknowledger do
   @moduledoc false
-  alias Broadway.{Acknowledger, TermStorage}
+  alias Broadway.Acknowledger
   alias BroadwayCloudPubSub.Client
 
   @behaviour Acknowledger
@@ -62,8 +62,20 @@ defmodule BroadwayCloudPubSub.Acknowledger do
         on_success: on_success
       }
 
-      {:ok, TermStorage.put(state)}
+      ack_ref = make_ref()
+      put_config(ack_ref, state)
+
+      {:ok, ack_ref}
     end
+  end
+
+  defp put_config(reference, state) do
+    :persistent_term.put({__MODULE__, reference}, state)
+  end
+
+  @spec get_config(ack_ref) :: t()
+  def get_config(reference) do
+    :persistent_term.get({__MODULE__, reference})
   end
 
   @doc """
@@ -76,7 +88,7 @@ defmodule BroadwayCloudPubSub.Acknowledger do
 
   @impl Acknowledger
   def ack(ack_ref, successful, failed) do
-    config = TermStorage.get!(ack_ref)
+    config = get_config(ack_ref)
 
     success_actions = group_actions_ack_ids(successful, :on_success, config)
     failure_actions = group_actions_ack_ids(failed, :on_failure, config)
