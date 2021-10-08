@@ -129,7 +129,11 @@ defmodule BroadwayCloudPubSub.Producer do
   `handle_batch/3` callback, we recommend all Broadway pipelines with Pub/Sub
   producers to define a default batcher with `batch_size` set to 10, so
   messages can be acknowledged in batches, which improves the performance
-  and reduces the cost of integrating with Google Cloud Pub/Sub.
+  and reduces the cost of integrating with Google Cloud Pub/Sub. In addition,
+  you should ensure that `batch_timeout` is set to a value less than
+  the acknowledgement deadline on the subscription. Otherwise you could
+  potentially have messages that remain in the subscription and are never
+  acknowledged successfully.
 
   ### Example
 
