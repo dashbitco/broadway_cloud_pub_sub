@@ -115,6 +115,17 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       ArgumentError,
       "expected :subscription to be a non empty string, got: nil",
       fn ->
+        # {_specs, pipeline_opts} =
+        #   BroadwayCloudPubSub.Producer.prepare_for_start(MyPipeline,
+        #     producer: [
+        #       module: {BroadwayCloudPubSub.Producer, [subscription: nil]},
+        #       concurrency: 1
+        #     ],
+        #     processors: [default: [concurrency: 1]]
+        #   )
+
+        # {BroadwayCloudPubSub.Producer, producer_opts} = pipeline_opts[:producer][:module]
+
         BroadwayCloudPubSub.Producer.init(subscription: nil)
       end
     )

@@ -170,7 +170,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       {:ok, result} = GoogleApiClient.init(opts)
 
       assert result.token_generator ==
-               {BroadwayCloudPubSub.GoogleApiClient, :generate_goth_token,
+               {BroadwayCloudPubSub.PipelineOptions, :generate_goth_token,
                 ["https://www.googleapis.com/auth/pubsub"]}
     end
 

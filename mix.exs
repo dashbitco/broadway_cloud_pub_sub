@@ -37,7 +37,9 @@ defmodule BroadwayCloudPubSub.MixProject do
       {:hackney, "~> 1.6"},
       {:goth, "~> 1.0", optional: true},
       {:ex_doc, "~> 0.23", only: :docs},
-      {:bypass, "~> 2.1", only: :test}
+      {:bypass, "~> 2.1", only: :test},
+      {:finch, "~> 0.9.0"},
+      {:jason, "~> 1.0"}
     ]
   end
 
