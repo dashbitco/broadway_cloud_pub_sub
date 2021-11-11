@@ -7,6 +7,8 @@ defmodule BroadwayCloudPubSub.PullClient do
   alias BroadwayCloudPubSub.PipelineOptions
   alias Finch.Response
 
+  require Logger
+
   @behaviour Client
 
   @impl Client
@@ -45,7 +47,7 @@ defmodule BroadwayCloudPubSub.PullClient do
 
     config
     |> execute(:pull, %{"maxMessages" => max_messages})
-    |> Map.fetch!("receivedMessages")
+    |> handle_response(:receive_messages)
     |> wrap_received_messages(ack_builder)
   end
 
@@ -56,14 +58,40 @@ defmodule BroadwayCloudPubSub.PullClient do
       "ackDeadlineSeconds" => ack_deadline_seconds
     }
 
-    execute(config, "modifyAckDeadline", payload)
-
-    :ok
+    config
+    |> execute(:modack, payload)
+    |> handle_response(:put_deadline)
   end
 
   @impl Client
   def acknowledge(ack_ids, config) do
-    execute(config, :acknowledge, %{"ackIds" => ack_ids})
+    config
+    |> execute(:acknowledge, %{"ackIds" => ack_ids})
+    |> handle_response(:acknowledge)
+  end
+
+  defp handle_response({:ok, response}, :receive_messages) do
+    %{"receivedMessages" => received_messages} = response
+    received_messages
+  end
+
+  defp handle_response({:ok, _}, _) do
+    :ok
+  end
+
+  defp handle_response({:error, reason}, :receive_messages) do
+    Logger.error("Unable to fetch events from Cloud Pub/Sub - reason: #{reason}")
+    []
+  end
+
+  defp handle_response({:error, reason}, :acknowledge) do
+    Logger.error("Unable to acknowledge messages with Cloud Pub/Sub - reason: #{reason}")
+    :ok
+  end
+
+  defp handle_response({:error, reason}, :put_deadline) do
+    Logger.error("Unable to put new ack deadline with Cloud Pub/Sub - reason: #{reason}")
+    :ok
   end
 
   defp wrap_received_messages(pub_sub_messages, ack_builder) do
@@ -121,50 +149,51 @@ defmodule BroadwayCloudPubSub.PullClient do
     [{"authorization", "Bearer #{token}"}, {"content-type", "application/json"}]
   end
 
+  @mod_ack_action "modifyAckDeadline"
+  defp url(config, :modack), do: url(config, @mod_ack_action)
+
   defp url(config, action) do
     sub = URI.encode(config.subscription.string)
     path = "/v1/" <> sub <> ":" <> to_string(action)
     config.base_url <> path
   end
 
-  defp status!(%Response{status: same} = resp, same) do
-    resp
-  end
-
-  defp status!(%Response{status: got}, expected) do
-    raise "#{inspect(__MODULE__)} - unexpected HTTP status code -" <>
-            " expected: #{expected}, got: #{inspect(got)}"
-  end
-
-  defp json!(%Response{body: b}), do: Jason.decode!(b)
-
   defp execute(config, action, payload) do
     url = url(config, action)
     body = Jason.encode!(payload)
-    token = get_token(config)
-    headers = headers(token)
+    headers = headers(config)
 
-    config.finch_name
-    |> finch_request!(url, body, headers)
-    |> status!(200)
-    |> json!()
+    case finch_request(config.finch_name, url, body, headers) do
+      {:ok, %Response{status: 200, body: body}} ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{} = resp} ->
+        {:error, format_error(url, resp)}
+
+      {:error, err} ->
+        {:error, format_error(url, err)}
+    end
   end
 
-  defp finch_request!(finch_name, url, body, headers) do
+  defp finch_request(finch_name, url, body, headers) do
     :post
     |> Finch.build(url, headers, body)
     |> Finch.request(finch_name, receive_timeout: :infinity)
-    |> case do
-      {:ok, resp} ->
-        resp
-
-      {:error, %{__exception__: true} = err} ->
-        raise err
-    end
   end
 
   defp get_token(%{token_generator: {m, f, a}}) do
     {:ok, token} = apply(m, f, a)
     token
+  end
+
+  defp format_error(url, %Response{status: status, body: body}) do
+    """
+    \nRequest to #{inspect(url)} failed with status #{inspect(status)}, got:
+    #{inspect(body)}
+    """
+  end
+
+  defp format_error(url, err) do
+    inspect(%{url: url, error: err})
   end
 end

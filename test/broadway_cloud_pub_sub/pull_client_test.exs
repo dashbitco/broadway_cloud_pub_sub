@@ -1,13 +1,11 @@
-defmodule BroadwayCloudPubSub.GoogleApiClientTest do
-  use ExUnit.Case
+defmodule BroadwayCloudPubSub.PullClientTest do
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureLog
 
   alias BroadwayCloudPubSub.Acknowledger
-  alias BroadwayCloudPubSub.GoogleApiClient
+  alias BroadwayCloudPubSub.PullClient
   alias Broadway.Message
-
-  @subscription_base "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar"
 
   @pull_response """
   {
@@ -52,37 +50,65 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
   {}
   """
 
+  setup do
+    server = Bypass.open()
+    base_url = "http://localhost:#{server.port}"
+
+    finch_name = __MODULE__.FinchName
+    _ = start_supervised({Finch, name: finch_name})
+
+    {:ok, server: server, base_url: base_url, finch_name: finch_name}
+  end
+
+  def on_pubsub_request(server, fun) when is_function(fun, 2) do
+    test_pid = self()
+
+    Bypass.expect(server, fn conn ->
+      url = Plug.Conn.request_url(conn)
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      body = Jason.decode!(body)
+
+      send(test_pid, {:http_request_called, %{url: url, body: body}})
+
+      case fun.(url, body) do
+        {:ok, resp_body} -> Plug.Conn.resp(conn, 200, resp_body)
+        {:error, resp_body} -> Plug.Conn.resp(conn, 500, resp_body)
+        {:error, status, resp_body} -> Plug.Conn.resp(conn, status, resp_body)
+      end
+    end)
+  end
+
   defp init_with_ack_builder(opts) do
-    {:ok, config} = GoogleApiClient.init(opts)
-    {:ok, ack_ref} = Acknowledger.init(GoogleApiClient, config, opts)
+    {:ok, config} = PullClient.init(opts)
+    {:ok, ack_ref} = Acknowledger.init(PullClient, config, opts)
     {ack_ref, Acknowledger.builder(ack_ref), config}
   end
 
   describe "validate init options" do
     test ":subscription is required" do
-      assert GoogleApiClient.init([]) ==
+      assert PullClient.init([]) ==
                {:error, "expected :subscription to be a non empty string, got: nil"}
 
-      assert GoogleApiClient.init(subscription: nil) ==
+      assert PullClient.init(subscription: nil) ==
                {:error, "expected :subscription to be a non empty string, got: nil"}
     end
 
     test ":subscription should be a valid subscription name" do
-      assert GoogleApiClient.init(subscription: "") ==
+      assert PullClient.init(subscription: "") ==
                {:error, "expected :subscription to be a non empty string, got: \"\""}
 
-      assert GoogleApiClient.init(subscription: :an_atom) ==
+      assert PullClient.init(subscription: :an_atom) ==
                {:error, "expected :subscription to be a non empty string, got: :an_atom"}
 
       assert {:ok, %{subscription: subscription}} =
-               GoogleApiClient.init(subscription: "projects/foo/subscriptions/bar")
+               PullClient.init(subscription: "projects/foo/subscriptions/bar")
 
       assert subscription.projects_id == "foo"
       assert subscription.subscriptions_id == "bar"
     end
 
     test ":return_immediately is nil without default value" do
-      {:ok, result} = GoogleApiClient.init(subscription: "projects/foo/subscriptions/bar")
+      {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
 
       assert is_nil(result.pull_request.returnImmediately)
     end
@@ -90,29 +116,27 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test ":return immediately should be a boolean" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
-      {:ok, result} = opts |> Keyword.put(:return_immediately, true) |> GoogleApiClient.init()
+      {:ok, result} = opts |> Keyword.put(:return_immediately, true) |> PullClient.init()
       assert result.pull_request.returnImmediately == true
 
-      {:ok, result} = opts |> Keyword.put(:return_immediately, false) |> GoogleApiClient.init()
+      {:ok, result} = opts |> Keyword.put(:return_immediately, false) |> PullClient.init()
       assert is_nil(result.pull_request.returnImmediately)
 
-      {:error, message} =
-        opts |> Keyword.put(:return_immediately, "true") |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:return_immediately, "true") |> PullClient.init()
 
       assert message == "expected :return_immediately to be a boolean value, got: \"true\""
 
-      {:error, message} = opts |> Keyword.put(:return_immediately, 0) |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:return_immediately, 0) |> PullClient.init()
 
       assert message == "expected :return_immediately to be a boolean value, got: 0"
 
-      {:error, message} =
-        opts |> Keyword.put(:return_immediately, :an_atom) |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:return_immediately, :an_atom) |> PullClient.init()
 
       assert message == "expected :return_immediately to be a boolean value, got: :an_atom"
     end
 
     test ":max_number_of_messages is optional with default value 10" do
-      {:ok, result} = GoogleApiClient.init(subscription: "projects/foo/subscriptions/bar")
+      {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
 
       assert result.pull_request.maxMessages == 10
     end
@@ -120,19 +144,18 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test ":max_number_of_messages should be a positive integer" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
-      {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 1) |> GoogleApiClient.init()
+      {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 1) |> PullClient.init()
       assert result.pull_request.maxMessages == 1
 
-      {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 10) |> GoogleApiClient.init()
+      {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 10) |> PullClient.init()
       assert result.pull_request.maxMessages == 10
 
-      {:error, message} =
-        opts |> Keyword.put(:max_number_of_messages, 0) |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:max_number_of_messages, 0) |> PullClient.init()
 
       assert message == "expected :max_number_of_messages to be a positive integer, got: 0"
 
       {:error, message} =
-        opts |> Keyword.put(:max_number_of_messages, :an_atom) |> GoogleApiClient.init()
+        opts |> Keyword.put(:max_number_of_messages, :an_atom) |> PullClient.init()
 
       assert message == "expected :max_number_of_messages to be a positive integer, got: :an_atom"
     end
@@ -140,26 +163,26 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test ":scope should be a string or tuple" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
-      {:ok, result} = opts |> Keyword.put(:scope, "https://example.com") |> GoogleApiClient.init()
+      {:ok, result} = opts |> Keyword.put(:scope, "https://example.com") |> PullClient.init()
 
       assert {_, _, ["https://example.com"]} = result.token_generator
 
-      {:error, message} = opts |> Keyword.put(:scope, :an_atom) |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:scope, :an_atom) |> PullClient.init()
 
       assert message == "expected :scope to be a non empty string or tuple, got: :an_atom"
 
-      {:error, message} = opts |> Keyword.put(:scope, 1) |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:scope, 1) |> PullClient.init()
 
       assert message == "expected :scope to be a non empty string or tuple, got: 1"
 
-      {:error, message} = opts |> Keyword.put(:scope, {}) |> GoogleApiClient.init()
+      {:error, message} = opts |> Keyword.put(:scope, {}) |> PullClient.init()
 
       assert message == "expected :scope to be a non empty string or tuple, got: {}"
 
       {:ok, result} =
         opts
         |> Keyword.put(:scope, {"mail@example.com", "https://example.com"})
-        |> GoogleApiClient.init()
+        |> PullClient.init()
 
       assert {_, _, [{"mail@example.com", "https://example.com"}]} = result.token_generator
     end
@@ -167,7 +190,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test ":token_generator defaults to using Goth with default scope" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
-      {:ok, result} = GoogleApiClient.init(opts)
+      {:ok, result} = PullClient.init(opts)
 
       assert result.token_generator ==
                {BroadwayCloudPubSub.PipelineOptions, :generate_goth_token,
@@ -182,21 +205,21 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       {:ok, result} =
         opts
         |> Keyword.put(:token_generator, token_generator)
-        |> GoogleApiClient.init()
+        |> PullClient.init()
 
       assert result.token_generator == token_generator
 
       {:error, message} =
         opts
         |> Keyword.put(:token_generator, {1, 1, 1})
-        |> GoogleApiClient.init()
+        |> PullClient.init()
 
       assert message == "expected :token_generator to be a tuple {Mod, Fun, Args}, got: {1, 1, 1}"
 
       {:error, message} =
         opts
         |> Keyword.put(:token_generator, SomeModule)
-        |> GoogleApiClient.init()
+        |> PullClient.init()
 
       assert message ==
                "expected :token_generator to be a tuple {Mod, Fun, Args}, got: SomeModule"
@@ -209,28 +232,25 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
                opts
                |> Keyword.put(:scope, :an_invalid_scope)
                |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
-               |> GoogleApiClient.init()
+               |> PullClient.init()
     end
   end
 
   describe "receive_messages/3" do
-    setup do
+    setup %{server: server, base_url: base_url, finch_name: finch_name} do
       test_pid = self()
 
-      Tesla.Mock.mock(fn %{method: :post} = req ->
-        body_object = Poison.decode!(req.body)
-        send(test_pid, {:http_request_called, %{url: req.url, body: body_object}})
-
-        %Tesla.Env{status: 200, body: @pull_response}
+      on_pubsub_request(server, fn _url, _body ->
+        {:ok, @pull_response}
       end)
 
       %{
         pid: test_pid,
         opts: [
-          __internal_tesla_adapter__: Tesla.Mock,
+          base_url: base_url,
+          finch_name: finch_name,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []},
-          retry: [max_retries: 3, delay: 1]
+          token_generator: {__MODULE__, :generate_token, []}
         ]
       }
     end
@@ -238,8 +258,8 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "returns a list of Broadway.Message with :data and :metadata set", %{
       opts: base_opts
     } do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
-      [message1, message2, message3] = GoogleApiClient.receive_messages(10, & &1, opts)
+      {:ok, opts} = PullClient.init(base_opts)
+      [message1, message2, message3] = PullClient.receive_messages(10, & &1, opts)
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -262,43 +282,32 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     end
 
     test "if the request fails, returns an empty list and log the error", %{
-      pid: pid,
-      opts: base_opts
+      opts: base_opts,
+      server: server
     } do
-      Tesla.Mock.mock(fn %{method: :post} = req ->
-        body_object = Poison.decode!(req.body)
-        send(pid, {:http_request_called, %{url: req.url, body: body_object}})
-
-        %Tesla.Env{status: 403, body: %{}}
+      on_pubsub_request(server, fn _, _ ->
+        {:error, 403, @empty_response}
       end)
 
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = PullClient.init(base_opts)
 
       assert capture_log(fn ->
-               assert GoogleApiClient.receive_messages(10, & &1, opts) == []
-             end) =~ "[error] Unable to fetch events from Cloud Pub/Sub. Reason: "
+               assert PullClient.receive_messages(10, & &1, opts) == []
+             end) =~ "[error] Unable to fetch events from Cloud Pub/Sub - reason: "
     end
 
     test "send a projects.subscriptions.pull request with default options", %{opts: base_opts} do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
-      GoogleApiClient.receive_messages(10, & &1, opts)
+      {:ok, opts} = PullClient.init(base_opts)
+      PullClient.receive_messages(10, & &1, opts)
 
       assert_received {:http_request_called, %{body: body, url: url}}
       assert body == %{"maxMessages" => 10}
-      assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:pull"
-    end
-
-    test "request with custom :return_immediately", %{opts: base_opts} do
-      {:ok, opts} = base_opts |> Keyword.put(:return_immediately, true) |> GoogleApiClient.init()
-      GoogleApiClient.receive_messages(10, & &1, opts)
-
-      assert_received {:http_request_called, %{body: body, url: _url}}
-      assert body["returnImmediately"] == true
+      assert url == base_opts[:base_url] <> "/v1/projects/foo/subscriptions/bar:pull"
     end
 
     test "request with custom :max_number_of_messages", %{opts: base_opts} do
-      {:ok, opts} = base_opts |> Keyword.put(:max_number_of_messages, 5) |> GoogleApiClient.init()
-      GoogleApiClient.receive_messages(10, & &1, opts)
+      {:ok, opts} = base_opts |> Keyword.put(:max_number_of_messages, 5) |> PullClient.init()
+      PullClient.receive_messages(10, & &1, opts)
 
       assert_received {:http_request_called, %{body: body, url: _url}}
       assert body["maxMessages"] == 5
@@ -306,98 +315,67 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
   end
 
   describe "acknowledge/2" do
-    setup do
+    setup %{server: server, base_url: base_url, finch_name: finch_name} do
       test_pid = self()
 
-      Tesla.Mock.mock(fn %{method: :post} = req ->
-        body_object = Poison.decode!(req.body)
-        send(test_pid, {:http_request_called, %{url: req.url, body: body_object}})
-
-        %Tesla.Env{status: 200, body: @empty_response}
+      on_pubsub_request(server, fn _, _ ->
+        {:ok, @empty_response}
       end)
 
       %{
         pid: test_pid,
         opts: [
-          __internal_tesla_adapter__: Tesla.Mock,
+          base_url: base_url,
+          finch_name: finch_name,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []},
-          retry: [max_retries: 3, delay: 1]
+          token_generator: {__MODULE__, :generate_token, []}
         ]
       }
     end
 
     test "makes a projects.subscriptions.acknowledge request", %{opts: base_opts} do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = PullClient.init(base_opts)
 
-      GoogleApiClient.acknowledge(["1", "2", "3"], opts)
+      PullClient.acknowledge(["1", "2", "3"], opts)
 
       assert_received {:http_request_called, %{body: body, url: url}}
 
       assert body == %{"ackIds" => ["1", "2", "3"]}
-      assert url == "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:acknowledge"
+      base_url = base_opts[:base_url]
+      assert url == base_url <> "/v1/projects/foo/subscriptions/bar:acknowledge"
     end
 
-    test "retries a few times in case of error response", %{opts: base_opts} do
-      test_pid = self()
-      max_retries = base_opts[:retry][:max_retries]
-      {:ok, counter} = Agent.start_link(fn -> 0 end)
-      bypass = Bypass.open(port: 9999)
-
-      Bypass.expect(bypass, fn conn ->
-        if Agent.get_and_update(counter, &{&1, &1 + 1}) < max_retries do
-          send(test_pid, :pong)
-          Plug.Conn.send_resp(conn, 503, "oops")
-        else
-          Plug.Conn.send_resp(conn, 200, "{}")
-        end
+    test "if the request fails, returns :ok and logs an error", %{
+      opts: base_opts,
+      server: server
+    } do
+      on_pubsub_request(server, fn _, _ ->
+        {:error, 503, @empty_response}
       end)
 
-      opts = Keyword.put(base_opts, :__internal_tesla_adapter__, Tesla.Adapter.Hackney)
-      opts = Keyword.put(opts, :middleware, [{Tesla.Middleware.BaseUrl, "http://localhost:9999"}])
-      {:ok, opts} = GoogleApiClient.init(opts)
-      assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
-
-      assert_received :pong
-      assert_received :pong
-      assert_received :pong
-      refute_received _
-    end
-
-    test "if the request fails, returns :ok and logs an error", %{pid: pid, opts: base_opts} do
-      Tesla.Mock.mock(fn %{method: :post} = req ->
-        body_object = Poison.decode!(req.body)
-        send(pid, {:http_request_called, %{url: req.url, body: body_object}})
-
-        %Tesla.Env{status: 503, body: %{}}
-      end)
-
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = PullClient.init(base_opts)
 
       assert capture_log(fn ->
-               assert GoogleApiClient.acknowledge(["1", "2"], opts) == :ok
-             end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub, reason: "
+               assert PullClient.acknowledge(["1", "2"], opts) == :ok
+             end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub - reason: "
     end
   end
 
   describe "put_deadline/3" do
-    setup do
+    setup %{server: server, base_url: base_url, finch_name: finch_name} do
       test_pid = self()
 
-      Tesla.Mock.mock(fn %{method: :post} = req ->
-        body_object = Poison.decode!(req.body)
-        send(test_pid, {:http_request_called, %{url: req.url, body: body_object}})
-
-        %Tesla.Env{status: 200, body: @empty_response}
+      on_pubsub_request(server, fn _, _ ->
+        {:ok, @empty_response}
       end)
 
       %{
         pid: test_pid,
         opts: [
-          __internal_tesla_adapter__: Tesla.Mock,
+          finch_name: finch_name,
+          base_url: base_url,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []},
-          retry: [max_retries: 3, delay: 1]
+          token_generator: {__MODULE__, :generate_token, []}
         ]
       }
     end
@@ -405,104 +383,81 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "makes a projects.subscriptions.modifyAckDeadline request", %{
       opts: base_opts
     } do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = PullClient.init(base_opts)
 
       ack_ids = ["1", "2"]
-      GoogleApiClient.put_deadline(ack_ids, 30, opts)
+      PullClient.put_deadline(ack_ids, 30, opts)
 
       assert_received {:http_request_called, %{body: body, url: url}}
       assert body == %{"ackIds" => ack_ids, "ackDeadlineSeconds" => 30}
 
-      assert url ==
-               "https://pubsub.googleapis.com/v1/projects/foo/subscriptions/bar:modifyAckDeadline"
+      assert url == base_opts[:base_url] <> "/v1/projects/foo/subscriptions/bar:modifyAckDeadline"
     end
 
-    test "if the request fails, returns :ok and logs an error", %{pid: pid, opts: base_opts} do
-      Tesla.Mock.mock(fn %{method: :post} = req ->
-        body_object = Poison.decode!(req.body)
-        send(pid, {:http_request_called, %{url: req.url, body: body_object}})
-
-        %Tesla.Env{status: 503, body: %{}}
+    test "if the request fails, returns :ok and logs an error",
+         %{opts: base_opts, server: server} do
+      on_pubsub_request(server, fn _, _ ->
+        {:error, 503, @empty_response}
       end)
 
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = PullClient.init(base_opts)
 
       assert capture_log(fn ->
-               assert GoogleApiClient.put_deadline(["1", "2"], 60, opts) == :ok
-             end) =~ "[error] Unable to put new ack deadline with Cloud Pub/Sub, reason: "
+               assert PullClient.put_deadline(["1", "2"], 60, opts) == :ok
+             end) =~ "[error] Unable to put new ack deadline with Cloud Pub/Sub - reason: "
     end
   end
 
   describe "prepare_to_connect/2" do
-    test "returns a child_spec for :hackney_pool" do
-      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, pool_size: 2)
-
-      assert name = opts[:__connection_pool__]
-      assert pool_spec == :hackney_pool.child_spec(name, max_connections: 2)
-    end
-
-    test "with extra options" do
-      pool_opts = [timeout: 20_000]
-      expected_pool_opts = Keyword.put(pool_opts, :max_connections, 5)
-      client_opts = [pool_size: 5, pool_opts: pool_opts]
-
-      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, client_opts)
-
-      assert name = opts[:__connection_pool__]
-      assert pool_spec == :hackney_pool.child_spec(name, expected_pool_opts)
-    end
-
-    test "max_connections takes precedence over pool_size" do
-      pool_opts = [timeout: 20_000, max_connections: 100]
-      client_opts = [pool_size: 5, pool_opts: pool_opts]
-
-      {[pool_spec], opts} = GoogleApiClient.prepare_to_connect(SomePipeline, client_opts)
-
-      assert name = opts[:__connection_pool__]
-      assert pool_spec == :hackney_pool.child_spec(name, pool_opts)
+    test "returns a child_spec for starting a Finch http pool " do
+      {[pool_spec], opts} = PullClient.prepare_to_connect(SomePipeline, pool_size: 2)
+      assert pool_spec == {Finch, name: SomePipeline.PullClient, pools: %{default: [size: 2]}}
+      assert opts == [finch_name: SomePipeline.PullClient, pool_size: 2]
     end
   end
 
   describe "integration with BroadwayCloudPubSub.Acknowledger" do
-    setup do
+    setup %{server: server, base_url: base_url, finch_name: finch_name} do
       test_pid = self()
 
-      Tesla.Mock.mock(fn
-        %{url: <<@subscription_base, action::binary>> = url} = req when action == ":pull" ->
-          body_object = Poison.decode!(req.body)
+      on_pubsub_request(server, fn url, body ->
+        action =
+          url
+          |> String.split(":")
+          |> List.last()
 
-          send(test_pid, {:pull_dispatched, %{url: url, body: body_object}})
+        case action do
+          "pull" ->
+            send(test_pid, {:pull_dispatched, %{url: url, body: body}})
+            {:ok, @pull_response}
 
-          %Tesla.Env{status: 200, body: @pull_response}
+          "acknowledge" ->
+            %{"ackIds" => ack_ids} = body
 
-        %{url: <<@subscription_base, action::binary>>} = req when action == ":acknowledge" ->
-          %{"ackIds" => ack_ids} = Poison.decode!(req.body)
+            send(test_pid, {:acknowledge_dispatched, length(ack_ids), ack_ids})
+            {:ok, @empty_response}
 
-          send(test_pid, {:acknowledge_dispatched, length(ack_ids), ack_ids})
+          "modifyAckDeadline" ->
+            %{"ackIds" => ack_ids, "ackDeadlineSeconds" => deadline} = body
 
-          %Tesla.Env{status: 200, body: @empty_response}
+            send(
+              test_pid,
+              {:modack_dispatched, length(ack_ids), deadline}
+            )
 
-        %{url: <<@subscription_base, action::binary>>} = req
-        when action == ":modifyAckDeadline" ->
-          %{"ackIds" => ack_ids, "ackDeadlineSeconds" => deadline} = Poison.decode!(req.body)
-
-          send(
-            test_pid,
-            {:modack_dispatched, length(ack_ids), deadline}
-          )
-
-          %Tesla.Env{status: 200, body: @empty_response}
+            {:ok, @empty_response}
+        end
       end)
 
       {:ok,
        %{
          pid: test_pid,
          opts: [
-           client: GoogleApiClient,
-           __internal_tesla_adapter__: Tesla.Mock,
+           base_url: base_url,
+           finch_name: finch_name,
+           client: PullClient,
            subscription: "projects/foo/subscriptions/bar",
-           token_generator: {__MODULE__, :generate_token, []},
-           retry: [max_retries: 3, delay: 1]
+           token_generator: {__MODULE__, :generate_token, []}
          ]
        }}
     end
@@ -510,9 +465,9 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "returns a list of Broadway.Message structs with ack builder", %{
       opts: base_opts
     } do
-      {:ok, opts} = GoogleApiClient.init(base_opts)
+      {:ok, opts} = PullClient.init(base_opts)
 
-      [message1, message2, message3] = GoogleApiClient.receive_messages(10, &{:ack, &1}, opts)
+      [message1, message2, message3] = PullClient.receive_messages(10, &{:ack, &1}, opts)
 
       assert {:ack, _} = message1.acknowledger
       assert {:ack, _} = message2.acknowledger
@@ -524,7 +479,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     } do
       {ack_ref, builder, opts} = init_with_ack_builder(base_opts)
 
-      messages = GoogleApiClient.receive_messages(10, builder, opts)
+      messages = PullClient.receive_messages(10, builder, opts)
 
       {successful, failed} = Enum.split(messages, 1)
 
@@ -541,7 +496,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         |> Keyword.put(:on_success, :noop)
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
+      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, messages, [])
 
@@ -556,7 +511,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         |> Keyword.put(:on_success, :nack)
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
+      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, messages, [])
 
@@ -572,7 +527,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         |> Keyword.put(:on_success, {:nack, 300})
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
+      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, messages, [])
 
@@ -583,7 +538,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     test "with default :on_failure, failed messages are ignored", %{opts: base_opts} do
       {ack_ref, builder, opts} = init_with_ack_builder(base_opts)
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
+      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, [], messages)
 
@@ -598,7 +553,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         |> Keyword.put(:on_failure, :nack)
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
+      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, [], messages)
 
@@ -613,7 +568,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
         |> Keyword.put(:on_failure, {:nack, 60})
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = GoogleApiClient.receive_messages(10, builder, opts)
+      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, [], messages)
 
