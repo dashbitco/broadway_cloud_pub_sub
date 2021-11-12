@@ -33,8 +33,8 @@ defmodule BroadwayCloudPubSub.MixProject do
   defp deps do
     [
       {:broadway, "~> 1.0"},
-      {:google_api_pub_sub, "~> 0.11"},
-      {:hackney, "~> 1.6"},
+      {:finch, "~> 0.9.0"},
+      {:jason, "~> 1.0"},
       {:goth, "~> 1.0", optional: true},
       {:ex_doc, "~> 0.23", only: :docs},
       {:bypass, "~> 2.1", only: :test}

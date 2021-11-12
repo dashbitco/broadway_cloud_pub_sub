@@ -3,22 +3,17 @@ defmodule BroadwayCloudPubSub.Producer do
   A GenStage producer that continuously receives messages from a Google Cloud Pub/Sub
   topic and acknowledges them after being successfully processed.
 
-  By default this producer uses `BroadwayCloudPubSub.GoogleApiClient` to talk to Cloud
+  By default this producer uses `BroadwayCloudPubSub.PullClient` to talk to Cloud
   Pub/Sub, but you can provide your client by implementing the `BroadwayCloudPubSub.Client`
   behaviour.
 
-  ## Options using `BroadwayCloudPubSub.GoogleApiClient`
+  ## Options using `BroadwayCloudPubSub.PullClient`
 
     * `:subscription` - Required. The name of the subscription.
       Example: "projects/my-project/subscriptions/my-subscription"
 
     * `:max_number_of_messages` - Optional. The maximum number of messages to be fetched
       per request. Default is `10`.
-
-    * `:return_immediately` - Optional. If this field set to true, the system will respond immediately
-      even if it there are no messages available to return in the Pull response. Otherwise, the system
-      may wait (for a bounded amount of time) until at least one message is available, rather than
-      returning no messages. Default is `nil`.
 
     * `:scope` - Optional. A string representing the scope or scopes to use when fetching
        an access token. Default is `"https://www.googleapis.com/auth/pubsub"`.
@@ -29,22 +24,8 @@ defmodule BroadwayCloudPubSub.Producer do
       Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
       See "Custom token generator" section below for more information.
 
-    * `:pool_opts` - Optional. A set of additional options to override the
-       default `:hackney_pool` configuration options.
-
-    * `:retry` - Optional. Configuration for retries.
-
-      Any Google PubSub request with error response will be retried a few times before returning the error.
-
-        - `:delay` - How long to wait (milliseconds) before retrying (positive integer, defaults to 500)
-        - `:max_retries` - Maximum number of retries (non-negative integer, defaults to 10)
-        - `:should_retry` - Function to determine if request should be retried based on the response.
-           Defaults to retrying all errors and responses with status 408, 500, 502, 503, 504, 522, and 524
-
-      See `Tesla.Middleware.Retry` for more information.
-
-    * `:middleware` - Optional. List of custom Tesla middleware
-      Example: `[{Tesla.Middleware.BaseUrl, "https://example.com"}]`
+    * `:base_url` - Optional. The base URL for the Cloud PubSub services.
+      Default is "https://pubsub.googleapis.com".
 
   ### Custom token generator
 
@@ -68,7 +49,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   ## Acknowledger options
 
-  These options apply to `BroadwayCloudPubSub.GoogleApiClient` acknowledgement API:
+  These options apply to `BroadwayCloudPubSub.PullClient` acknowledgement API:
 
     * `:on_success` - Optional. Configures the behaviour for successful messages.
        See the "Acknowledgements" section below for all the possible values.
@@ -88,7 +69,7 @@ defmodule BroadwayCloudPubSub.Producer do
       behaviour. This module is responsible for fetching and acknowledging the
       messages. Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs. Default
-      is `BroadwayCloudPubSub.GoogleApiClient`.
+      is `BroadwayCloudPubSub.PullClient`.
 
     * `:pool_size` - Optional. The size of the connection pool. Default is
        twice the producer concurrency.
@@ -166,7 +147,8 @@ defmodule BroadwayCloudPubSub.Producer do
 
   @behaviour Producer
 
-  @default_client BroadwayCloudPubSub.GoogleApiClient
+  @default_base_url "https://pubsub.googleapis.com"
+  @default_client BroadwayCloudPubSub.PullClient
   @default_receive_interval 5000
 
   @impl Producer
@@ -196,6 +178,7 @@ defmodule BroadwayCloudPubSub.Producer do
   def init(opts) do
     client = opts[:client] || @default_client
     receive_interval = opts[:receive_interval] || @default_receive_interval
+    opts = Keyword.put_new(opts, :base_url, @default_base_url)
 
     with {:ok, config} <- client.init(opts),
          {:ok, ack_ref} <- Acknowledger.init(client, config, opts) do
