@@ -71,8 +71,10 @@ defmodule BroadwayCloudPubSub.PullClient do
   end
 
   defp handle_response({:ok, response}, :receive_messages) do
-    %{"receivedMessages" => received_messages} = response
-    received_messages
+    case response do
+      %{"receivedMessages" => received_messages} -> received_messages
+      _ -> []
+    end
   end
 
   defp handle_response({:ok, _}, _) do
