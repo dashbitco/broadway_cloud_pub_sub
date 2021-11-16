@@ -1,10 +1,9 @@
 defmodule BroadwayCloudPubSub.PullClient do
   @moduledoc """
-  Pull client using Finch.
+  A subscriptions [pull client](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/pull) built on `Finch`.
   """
   alias Broadway.Message
   alias BroadwayCloudPubSub.Client
-  alias BroadwayCloudPubSub.PipelineOptions
   alias Finch.Response
 
   require Logger
@@ -18,27 +17,20 @@ defmodule BroadwayCloudPubSub.PullClient do
 
     finch_name = Module.concat(name, PullClient)
 
-    children = [
+    specs = [
       {Finch, name: finch_name, pools: %{default: [size: pool_size]}}
     ]
 
     producer_opts = Keyword.put(producer_opts, :finch_name, finch_name)
 
-    {children, producer_opts}
+    {specs, producer_opts}
   end
 
   @impl Client
   def init(opts) do
-    with {:ok, pipeline_config} <- PipelineOptions.validate(opts) do
-      api_config = %{
-        finch_name: opts[:finch_name],
-        base_url: opts[:base_url]
-      }
+    opts_map = Map.new(opts)
 
-      finch_config = Map.merge(pipeline_config, api_config)
-
-      {:ok, finch_config}
-    end
+    {:ok, opts_map}
   end
 
   @impl Client

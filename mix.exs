@@ -35,6 +35,7 @@ defmodule BroadwayCloudPubSub.MixProject do
       {:broadway, "~> 1.0"},
       {:finch, "~> 0.9.0"},
       {:jason, "~> 1.0"},
+      {:nimble_options, "~> 0.3.5"},
       {:goth, "~> 1.0", optional: true},
       {:ex_doc, "~> 0.23", only: :docs},
       {:bypass, "~> 2.1", only: :test}
