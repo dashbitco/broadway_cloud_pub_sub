@@ -7,25 +7,16 @@ defmodule BroadwayCloudPubSub.Producer do
   Pub/Sub, but you can provide your client by implementing the `BroadwayCloudPubSub.Client`
   behaviour.
 
-  ## Options using `BroadwayCloudPubSub.PullClient`
+  For a quick getting started on using Broadway with Cloud Pub/Sub, please see
+  the [Google Cloud Pub/Sub Guide](https://hexdocs.pm/broadway/google-cloud-pubsub.html).
 
-    * `:subscription` - Required. The name of the subscription.
-      Example: "projects/my-project/subscriptions/my-subscription"
+  ## Options
 
-    * `:max_number_of_messages` - Optional. The maximum number of messages to be fetched
-      per request. Default is `10`.
+  Aside from `:receive_interval` and `:client` which are generic and apply to all
+  producers (regardless of the client implementation), all other options are specific to
+  the `BroadwayCloudPubSub.PullClient`, which is the default client.
 
-    * `:scope` - Optional. A string representing the scope or scopes to use when fetching
-       an access token. Default is `"https://www.googleapis.com/auth/pubsub"`.
-       Note: The `:scope` option only applies to the default token generator.
-
-    * `:token_generator` - Optional. An MFArgs tuple that will be called before each request
-      to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
-      Default generator uses `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
-      See "Custom token generator" section below for more information.
-
-    * `:base_url` - Optional. The base URL for the Cloud PubSub services.
-      Default is "https://pubsub.googleapis.com".
+  #{NimbleOptions.docs(BroadwayCloudPubSub.PipelineOptions.definition())}
 
     * `:finch_name` - Optional. The used name to launch the `Finch` client
       in the supervision tree. Useful if you are reusing the same module for
@@ -53,36 +44,6 @@ defmodule BroadwayCloudPubSub.Producer do
   and configure the producer to use it:
 
       token_generator: {MyApp, :fetch_token, []}
-
-  ## Acknowledger options
-
-  These options apply to `BroadwayCloudPubSub.PullClient` acknowledgement API:
-
-    * `:on_success` - Optional. Configures the behaviour for successful messages.
-       See the "Acknowledgements" section below for all the possible values.
-       This option can also be changed for each message through `Broadway.Message.configure_ack/2`.
-       Default is `:ack`.
-
-    * `:on_failure` - Optional. Configures the behaviour for failed messages.
-       See the "Acknowledgements" section below for all the possible values. This
-       option can also be changed for each message through `Broadway.Message.configure_ack/2`.
-       Default is `:noop`.
-
-  ## Additional options
-
-  These options apply to all producers, regardless of client implementation:
-
-    * `:client` - Optional. A module that implements the `BroadwayCloudPubSub.Client`
-      behaviour. This module is responsible for fetching and acknowledging the
-      messages. Pay attention that all options passed to the producer will be forwarded
-      to the client. It's up to the client to normalize the options it needs. Default
-      is `BroadwayCloudPubSub.PullClient`.
-
-    * `:pool_size` - Optional. The size of the connection pool. Default is
-       twice the producer concurrency.
-
-    * `:receive_interval` - Optional. The duration (in milliseconds) for which the producer
-      waits before making a request for more messages. Default is 5000.
 
   ## Acknowledgements
 
@@ -154,23 +115,43 @@ defmodule BroadwayCloudPubSub.Producer do
 
   @behaviour Producer
 
-  @default_base_url "https://pubsub.googleapis.com"
-  @default_client BroadwayCloudPubSub.PullClient
-  @default_receive_interval 5000
+  @impl GenStage
+  def init(opts) do
+    receive_interval = opts[:receive_interval]
+    client = opts[:client]
+
+    {:ok, config} = client.init(opts)
+    {:ok, ack_ref} = Acknowledger.init(client, config, opts)
+
+    {:producer,
+     %{
+       demand: 0,
+       receive_timer: nil,
+       receive_interval: receive_interval,
+       client: {client, config},
+       ack_ref: ack_ref
+     }}
+  end
 
   @impl Producer
-  def prepare_for_start(module, opts) do
-    {me, my_opts} = opts[:producer][:module]
-    client = Keyword.get(my_opts, :client, @default_client)
+  def prepare_for_start(module, broadway_opts) do
+    {producer_module, client_opts} = broadway_opts[:producer][:module]
 
-    my_opts =
-      Keyword.put_new_lazy(my_opts, :pool_size, fn ->
-        2 * opts[:producer][:concurrency]
-      end)
+    # TODO: set empty pool_size to 2 * broadway_opts[:producer][:concurrency]
+    case NimbleOptions.validate(client_opts, BroadwayCloudPubSub.PipelineOptions.definition()) do
+      {:error, error} ->
+        raise ArgumentError, format_error(error)
 
-    {specs, my_opts} = prepare_to_connect(module, client, my_opts)
+      {:ok, opts} ->
+        client = opts[:client]
 
-    {specs, put_in(opts, [:producer, :module], {me, my_opts})}
+        {specs, opts} = prepare_to_connect(module, client, opts)
+
+        broadway_opts_with_defaults =
+          put_in(broadway_opts, [:producer, :module], {producer_module, opts})
+
+        {specs, broadway_opts_with_defaults}
+    end
   end
 
   defp prepare_to_connect(module, client, producer_opts) do
@@ -181,25 +162,9 @@ defmodule BroadwayCloudPubSub.Producer do
     end
   end
 
-  @impl true
-  def init(opts) do
-    client = opts[:client] || @default_client
-    receive_interval = opts[:receive_interval] || @default_receive_interval
-    opts = Keyword.put_new(opts, :base_url, @default_base_url)
-
-    with {:ok, config} <- client.init(opts),
-         {:ok, ack_ref} <- Acknowledger.init(client, config, opts) do
-      {:producer,
-       %{
-         demand: 0,
-         receive_timer: nil,
-         receive_interval: receive_interval,
-         client: {client, config},
-         ack_ref: ack_ref
-       }}
-    else
-      {:error, message} -> raise ArgumentError, message
-    end
+  # TODO: really format errors :-)
+  defp format_error(error) do
+    "#{inspect(error)}"
   end
 
   @impl true

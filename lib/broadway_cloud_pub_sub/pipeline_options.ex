@@ -7,18 +7,109 @@ defmodule BroadwayCloudPubSub.PipelineOptions do
 
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
+  @valid_ack_values [:ack, :nack, :noop]
+
+  # TODO: validate {:nack, integer()} as an ack value
+  def definition do
+    [
+      client: [
+        type: :atom,
+        default: BroadwayCloudPubSub.PullClient,
+        doc: """
+        A module that implements the BroadwayCloudPubSub.Client behaviour.
+        This module is responsible for fetching and acknowledging the messages.
+        Pay attention that all options passed to the producer will be forwarded
+        to the client. It's up to the client to normalize the options it needs.
+        """
+      ],
+      subscription: [
+        type: :string,
+        required: true,
+        doc: """
+        The name of the subscription, including the project.
+        For example, if you project is named `"my-project"` and your
+        subscription is named `"my-subscription"`, then your subscription
+        name is `"projects/my-project/subscriptions/my-subscription"`.
+        """
+      ],
+      max_number_of_messages: [
+        doc: "The maximum number of messages to be fetched per request.",
+        type: :integer,
+        default: 10
+      ],
+      on_failure: [
+        type: {:in, @valid_ack_values},
+        doc: """
+        Configures the acking behaviour for failed messages.
+        See the "Acknowledgements" section below for all the possible values.
+        This option can also be changed for each message through
+        `Broadway.Message.configure_ack/2`.
+        """,
+        default: :noop
+      ],
+      on_success: [
+        type: {:in, @valid_ack_values},
+        doc: """
+        Configures the acking behaviour for successful messages.
+        See the "Acknowledgements" section below for all the possible values.
+        This option can also be changed for each message through
+        `Broadway.Message.configure_ack/2`.
+        """,
+        default: :ack
+      ],
+      pool_size: [
+        type: {:custom, __MODULE__, :validate_pool_size, []},
+        doc: """
+        The size of the connection pool.
+        The default value is twice the producer concurrency.
+        """
+      ],
+      receive_interval: [
+        type: :integer,
+        default: 5_000,
+        doc: """
+        The duration (in milliseconds) for which the producer waits
+        before making a request for more messages.
+        """
+      ],
+      scope: [
+        type: :string,
+        default: "https://www.googleapis.com/auth/pubsub",
+        doc: """
+        A string representing the scope or scopes to use when fetching
+        an access token. Note that the `:scope` option only applies to the
+        default token generator.
+        """
+      ],
+      token_generator: [
+        type: :mfa,
+        default: {__MODULE__, :generate_goth_token, []},
+        doc: """
+        An MFArgs tuple that will be called before each request
+        to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
+        By default this will invoke `Goth.Token.for_scope/1` with `"https://www.googleapis.com/auth/pubsub"`.
+        See the "Custom token generator" section below for more information.
+        """
+      ],
+      base_url: [
+        doc: "The base URL for the Cloud PubSub services.",
+        type: :string,
+        default: "https://pubsub.googleapis.com"
+      ]
+    ]
+  end
+
+  def validate_pool_size(opts) do
+    IO.inspect(opts, label: :pool_size)
+    2
+  end
+
   def validate(opts) do
-    with(
-      {:ok, subscription} <- validate_subscription(opts),
-      {:ok, token_generator} <- validate_token_opts(opts),
-      {:ok, pull_request} <- validate_pull_request(opts),
-      {:ok, receive_timeout} <- validate(opts, :receive_timeout, @default_receive_timeout)
-    ) do
+    with {:ok, opts} <- NimbleOptions.validate(opts, definition()) do
       config = %{
-        subscription: subscription,
-        token_generator: token_generator,
-        pull_request: pull_request,
-        receive_timeout: receive_timeout
+        subscription: Keyword.fetch!(opts, :subscription),
+        token_generator: Keyword.fetch!(opts, :token_generator),
+        pull_request: Keyword.fetch!(opts, :pull_request)
       }
 
       {:ok, config}
