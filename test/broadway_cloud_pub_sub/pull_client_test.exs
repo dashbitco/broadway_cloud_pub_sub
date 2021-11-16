@@ -281,6 +281,19 @@ defmodule BroadwayCloudPubSub.PullClientTest do
              } = message3.metadata.attributes
     end
 
+    test "returns an empty list when an empty response is returned by the server", %{
+      opts: base_opts,
+      server: server
+    } do
+      on_pubsub_request(server, fn _, _ ->
+        {:ok, @empty_response}
+      end)
+
+      {:ok, opts} = PullClient.init(base_opts)
+
+      assert [] == PullClient.receive_messages(10, & &1, opts)
+    end
+
     test "if the request fails, returns an empty list and log the error", %{
       opts: base_opts,
       server: server
