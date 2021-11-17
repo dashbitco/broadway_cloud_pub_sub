@@ -29,14 +29,12 @@ defmodule BroadwayCloudPubSub.PullClient do
 
   @impl Client
   def init(opts) do
-    opts_map = Map.new(opts)
-
-    {:ok, opts_map}
+    {:ok, Map.new(opts)}
   end
 
   @impl Client
   def receive_messages(demand, ack_builder, config) do
-    max_messages = min(demand, config.pull_request.maxMessages)
+    max_messages = min(demand, config.max_number_of_messages)
 
     config
     |> execute(:pull, %{"maxMessages" => max_messages})
@@ -150,7 +148,7 @@ defmodule BroadwayCloudPubSub.PullClient do
   defp url(config, :modack), do: url(config, @mod_ack_action)
 
   defp url(config, action) do
-    sub = URI.encode(config.subscription.string)
+    sub = URI.encode(config.subscription)
     path = "/v1/" <> sub <> ":" <> to_string(action)
     config.base_url <> path
   end

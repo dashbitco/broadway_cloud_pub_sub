@@ -113,7 +113,6 @@ defmodule BroadwayCloudPubSub.Producer do
   alias Broadway.Producer
   alias BroadwayCloudPubSub.Acknowledger
   alias BroadwayCloudPubSub.PipelineOptions
-  alias NimbleOptions.ValidationError
 
   @behaviour Producer
 
@@ -146,7 +145,8 @@ defmodule BroadwayCloudPubSub.Producer do
 
     case NimbleOptions.validate(client_opts, PipelineOptions.definition()) do
       {:error, error} ->
-        raise ArgumentError, format_error(error)
+        raise ArgumentError,
+              PipelineOptions.format_error(error, __MODULE__, :prepare_for_start, 2)
 
       {:ok, opts} ->
         ack_ref = broadway_opts[:name]
@@ -174,15 +174,6 @@ defmodule BroadwayCloudPubSub.Producer do
     else
       {[], producer_opts}
     end
-  end
-
-  defp format_error(%ValidationError{keys_path: [], message: message}) do
-    "invalid configuration given to BroadwayCloudPubSub.Producer.prepare_for_start/2, " <> message
-  end
-
-  defp format_error(%ValidationError{keys_path: keys_path, message: message}) do
-    "invalid configuration given to BroadwayCloudPubSub.Producer.prepare_for_start/2 for key #{inspect(keys_path)}, " <>
-      message
   end
 
   @impl true

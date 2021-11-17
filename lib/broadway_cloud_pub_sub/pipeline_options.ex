@@ -1,5 +1,6 @@
 defmodule BroadwayCloudPubSub.PipelineOptions do
   @moduledoc false
+  alias NimbleOptions.ValidationError
   require Logger
 
   @default_base_url "https://pubsub.googleapis.com"
@@ -122,10 +123,18 @@ defmodule BroadwayCloudPubSub.PipelineOptions do
     ]
   ]
 
-  @opts_schema NimbleOptions.new!(definition)
+  @definition NimbleOptions.new!(definition)
 
   def definition do
-    @opts_schema
+    @definition
+  end
+
+  @acknowledger_definition definition
+                           |> Keyword.take([:on_failure, :on_success])
+                           |> NimbleOptions.new!()
+
+  def acknowledger_definition do
+    @acknowledger_definition
   end
 
   @doc """
@@ -213,6 +222,15 @@ defmodule BroadwayCloudPubSub.PipelineOptions do
 
   def type_non_empty_string_or_tagged_tuple(value, _) do
     {:ok, value}
+  end
+
+  def format_error(%ValidationError{keys_path: [], message: message}, mod, fun, arity) do
+    "invalid configuration given to #{inspect(mod)}.#{fun}/#{arity}, " <> message
+  end
+
+  def format_error(%ValidationError{keys_path: keys_path, message: message}, mod, fun, arity) do
+    "invalid configuration given to #{inspect(mod)}.#{fun}/#{arity} for key #{inspect(keys_path)}, " <>
+      message
   end
 
   @doc false
