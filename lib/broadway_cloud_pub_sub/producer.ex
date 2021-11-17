@@ -16,7 +16,7 @@ defmodule BroadwayCloudPubSub.Producer do
   producers (regardless of the client implementation), all other options are specific to
   the `BroadwayCloudPubSub.PullClient`, which is the default client.
 
-  #{NimbleOptions.docs(BroadwayCloudPubSub.PipelineOptions.definition())}
+  #{NimbleOptions.docs(BroadwayCloudPubSub.Options.definition())}
 
   ### Custom token generator
 
@@ -104,8 +104,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
   use GenStage
   alias Broadway.Producer
-  alias BroadwayCloudPubSub.Acknowledger
-  alias BroadwayCloudPubSub.PipelineOptions
+  alias BroadwayCloudPubSub.{Acknowledger, Options}
 
   @behaviour Producer
 
@@ -136,10 +135,10 @@ defmodule BroadwayCloudPubSub.Producer do
         2 * broadway_opts[:producer][:concurrency]
       end)
 
-    case NimbleOptions.validate(client_opts, PipelineOptions.definition()) do
+    case NimbleOptions.validate(client_opts, Options.definition()) do
       {:error, error} ->
         raise ArgumentError,
-              PipelineOptions.format_error(error, __MODULE__, :prepare_for_start, 2)
+              Options.format_error(error, __MODULE__, :prepare_for_start, 2)
 
       {:ok, opts} ->
         ack_ref = broadway_opts[:name]
@@ -147,7 +146,7 @@ defmodule BroadwayCloudPubSub.Producer do
 
         opts =
           Keyword.put_new_lazy(opts, :token_generator, fn ->
-            PipelineOptions.make_token_generator(opts)
+            Options.make_token_generator(opts)
           end)
 
         {specs, opts} = prepare_to_connect(module, client, opts)

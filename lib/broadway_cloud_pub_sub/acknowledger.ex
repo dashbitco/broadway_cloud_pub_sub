@@ -1,7 +1,7 @@
 defmodule BroadwayCloudPubSub.Acknowledger do
   @moduledoc false
   alias Broadway.Acknowledger
-  alias BroadwayCloudPubSub.{Client, PipelineOptions}
+  alias BroadwayCloudPubSub.{Client, Options}
 
   @behaviour Acknowledger
 
@@ -52,14 +52,14 @@ defmodule BroadwayCloudPubSub.Acknowledger do
 
   @impl Acknowledger
   def configure(_ack_ref, ack_data, options) do
-    case NimbleOptions.validate(options, PipelineOptions.acknowledger_definition()) do
+    case NimbleOptions.validate(options, Options.acknowledger_definition()) do
       {:ok, opts} ->
         ack_data = Map.merge(ack_data, Map.new(opts))
         {:ok, ack_data}
 
       {:error, error} ->
         raise ArgumentError,
-              PipelineOptions.format_error(error, __MODULE__, :configure, 3)
+              Options.format_error(error, __MODULE__, :configure, 3)
     end
   end
 
