@@ -4,8 +4,6 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
   alias BroadwayCloudPubSub.Client
   alias BroadwayCloudPubSub.Acknowledger
 
-  doctest Acknowledger
-
   defmodule CallerClient do
     alias BroadwayCloudPubSub.Acknowledger
 
@@ -31,71 +29,61 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
   end
 
   defp init_with_ack_ref(opts) do
-    {:ok, config} = CallerClient.init(opts)
-    {:ok, ack_ref} = Acknowledger.init(CallerClient, config, opts)
+    ack_ref = opts[:broadway][:name]
+
+    :persistent_term.put(ack_ref, %{
+      base_url: "http://localhost:8085",
+      client: CallerClient,
+      on_failure: opts[:on_failure] || :noop,
+      on_success: opts[:on_success] || :ack,
+      subscription: "projects/test/subscriptions/test-subscription",
+      # Required for the CallerClient
+      test_pid: opts[:test_pid],
+      token_generator: {Token, :generate, []}
+    })
+
+    {:ok, _config} = CallerClient.init(opts)
+
     ack_ref
-  end
-
-  describe "init/1" do
-    test "with valid client, returns config with default actions" do
-      assert {:ok, ref} = Acknowledger.init(CallerClient, :config, [])
-
-      assert Acknowledger.get_config(ref) ==
-               %Acknowledger{
-                 client: CallerClient,
-                 client_config: :config,
-                 on_failure: :noop,
-                 on_success: :ack
-               }
-    end
-
-    test "with valid options, returns config with custom actions" do
-      assert {:ok, ref} =
-               Acknowledger.init(CallerClient, :config, on_success: :noop, on_failure: :nack)
-
-      assert Acknowledger.get_config(ref) ==
-               %Acknowledger{
-                 client: CallerClient,
-                 client_config: :config,
-                 on_failure: {:nack, 0},
-                 on_success: :noop
-               }
-    end
   end
 
   describe "configure/3" do
     test "raise on unsupported configure option" do
-      assert_raise(ArgumentError, "unsupported configure option :on_other", fn ->
+      assert_raise(ArgumentError, ~r/unknown options \[:on_other\]/, fn ->
         Acknowledger.configure(:ack_ref, %{}, on_other: :ack)
       end)
     end
 
     test "raise on unsupported on_success value" do
-      error_msg = "expected :on_success to be a valid acknowledgement option, got: :unknown"
-
-      assert_raise(ArgumentError, error_msg, fn ->
-        Acknowledger.configure(:ack_ref, %{}, on_success: :unknown)
-      end)
+      assert_raise(
+        ArgumentError,
+        ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :unknown/,
+        fn ->
+          Acknowledger.configure(:ack_ref, %{}, on_success: :unknown)
+        end
+      )
     end
 
     test "raise on unsupported on_failure value" do
-      error_msg = "expected :on_failure to be a valid acknowledgement option, got: :unknown"
-
-      assert_raise(ArgumentError, error_msg, fn ->
-        Acknowledger.configure(:ack_ref, %{}, on_failure: :unknown)
-      end)
+      assert_raise(
+        ArgumentError,
+        ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :unknown/,
+        fn ->
+          Acknowledger.configure(:ack_ref, %{}, on_failure: :unknown)
+        end
+      )
     end
 
-    test "set on_success correctly" do
+    test "sets defaults" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_success: :ack}
+      expected = %{ack_id: "1", on_success: :ack, on_failure: :noop}
 
-      assert {:ok, expected} == Acknowledger.configure(:ack_ref, ack_data, on_success: :ack)
+      assert {:ok, expected} == Acknowledger.configure(:ack_ref, ack_data, [])
     end
 
     test "set on_success with ignore" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_success: :noop}
+      expected = %{ack_id: "1", on_success: :noop, on_failure: :noop}
 
       assert {:ok, expected} ==
                Acknowledger.configure(:ack_ref, ack_data, on_success: :noop)
@@ -103,7 +91,7 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
 
     test "set on_failure with deadline 0" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_failure: {:nack, 0}}
+      expected = %{ack_id: "1", on_success: :ack, on_failure: {:nack, 0}}
 
       assert {:ok, expected} ==
                Acknowledger.configure(:ack_ref, ack_data, on_failure: :nack)
@@ -111,7 +99,7 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
 
     test "set on_failure with custom deadline" do
       ack_data = %{ack_id: "1"}
-      expected = %{ack_id: "1", on_failure: {:nack, 60}}
+      expected = %{ack_id: "1", on_success: :ack, on_failure: {:nack, 60}}
 
       assert {:ok, expected} ==
                Acknowledger.configure(:ack_ref, ack_data, on_failure: {:nack, 60})
@@ -120,7 +108,12 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
 
   describe "ack/3" do
     setup do
-      producer_opts = [client: CallerClient, test_pid: self()]
+      producer_opts = [
+        # will be injected by Broadway at runtime
+        broadway: [name: :Broadway4],
+        client: CallerClient,
+        test_pid: self()
+      ]
 
       {:ok, producer_opts: producer_opts}
     end
@@ -199,20 +192,8 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
       assert_received({:acknowledge, 6})
     end
 
-    test "treats :nack as {:nack, 0}", %{producer_opts: opts} do
-      ack_ref = init_with_ack_ref([on_success: :nack, on_failure: {:nack, 0}] ++ opts)
-
-      messages = build_messages(6, ack_ref)
-
-      {successful, failed} = Enum.split(messages, 3)
-
-      Acknowledger.ack(ack_ref, successful, failed)
-
-      assert_received({:put_deadline, 6, 0})
-    end
-
     test "configuring message treats :nack as {:nack, 0}", %{producer_opts: opts} do
-      ack_ref = init_with_ack_ref([on_success: :nack, on_failure: {:nack, 0}] ++ opts)
+      ack_ref = init_with_ack_ref([on_success: {:nack, 0}, on_failure: {:nack, 0}] ++ opts)
 
       [first | messages] = build_messages(6, ack_ref)
 
