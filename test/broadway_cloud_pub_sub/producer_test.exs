@@ -327,7 +327,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:token_generator] ==
-               {BroadwayCloudPubSub.PipelineOptions, :generate_goth_token,
+               {BroadwayCloudPubSub.Options, :generate_goth_token,
                 ["https://www.googleapis.com/auth/pubsub"]}
     end
 

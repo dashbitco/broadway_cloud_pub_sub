@@ -1,4 +1,4 @@
-defmodule BroadwayCloudPubSub.PipelineOptions do
+defmodule BroadwayCloudPubSub.Options do
   @moduledoc false
   alias NimbleOptions.ValidationError
   require Logger
