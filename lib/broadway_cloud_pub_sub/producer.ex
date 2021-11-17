@@ -105,6 +105,8 @@ defmodule BroadwayCloudPubSub.Producer do
   use GenStage
   alias Broadway.Producer
   alias BroadwayCloudPubSub.Acknowledger
+  alias BroadwayCloudPubSub.PipelineOptions
+  alias NimbleOptions.ValidationError
 
   @behaviour Producer
 
@@ -114,7 +116,7 @@ defmodule BroadwayCloudPubSub.Producer do
     client = opts[:client]
 
     {:ok, config} = client.init(opts)
-    {:ok, ack_ref} = Acknowledger.init(client, config, opts)
+    ack_ref = opts[:broadway][:name]
 
     {:producer,
      %{
@@ -130,15 +132,27 @@ defmodule BroadwayCloudPubSub.Producer do
   def prepare_for_start(module, broadway_opts) do
     {producer_module, client_opts} = broadway_opts[:producer][:module]
 
-    # TODO: set empty pool_size to 2 * broadway_opts[:producer][:concurrency]
-    case NimbleOptions.validate(client_opts, BroadwayCloudPubSub.PipelineOptions.definition()) do
+    client_opts =
+      Keyword.put_new_lazy(client_opts, :pool_size, fn ->
+        2 * broadway_opts[:producer][:concurrency]
+      end)
+
+    case NimbleOptions.validate(client_opts, PipelineOptions.definition()) do
       {:error, error} ->
         raise ArgumentError, format_error(error)
 
       {:ok, opts} ->
+        ack_ref = broadway_opts[:name]
         client = opts[:client]
 
+        opts =
+          Keyword.put_new_lazy(opts, :token_generator, fn ->
+            PipelineOptions.make_token_generator(opts)
+          end)
+
         {specs, opts} = prepare_to_connect(module, client, opts)
+
+        :persistent_term.put(ack_ref, Map.new(opts))
 
         broadway_opts_with_defaults =
           put_in(broadway_opts, [:producer, :module], {producer_module, opts})
@@ -155,9 +169,13 @@ defmodule BroadwayCloudPubSub.Producer do
     end
   end
 
-  # TODO: really format errors :-)
-  defp format_error(error) do
-    "#{inspect(error)}"
+  defp format_error(%ValidationError{keys_path: [], message: message}) do
+    "invalid configuration given to BroadwayCloudPubSub.Producer.prepare_for_start/2, " <> message
+  end
+
+  defp format_error(%ValidationError{keys_path: keys_path, message: message}) do
+    "invalid configuration given to BroadwayCloudPubSub.Producer.prepare_for_start/2 for key #{inspect(keys_path)}, " <>
+      message
   end
 
   @impl true
