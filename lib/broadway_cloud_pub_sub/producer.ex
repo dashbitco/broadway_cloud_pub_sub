@@ -27,9 +27,9 @@ defmodule BroadwayCloudPubSub.Producer do
     * `:base_url` - Optional. The base URL for the Cloud PubSub services.
       Default is "https://pubsub.googleapis.com".
 
-    * `:finch_name` - Optional. The used name to launch the `Finch` client in the supervision tree.
-      Useful if you are reusing the same module for many `Broadway`s.
-      Default is `YourModule.PullClient`.
+    * `:finch_name` - Optional. The used name to launch the `Finch` client
+      in the supervision tree. Useful if you are reusing the same module for
+      many `Broadway` pipelines. Defaults to `YourModule.PullClient`
 
   ### Custom token generator
 
