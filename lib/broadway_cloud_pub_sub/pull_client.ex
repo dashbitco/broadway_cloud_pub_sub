@@ -16,7 +16,8 @@ defmodule BroadwayCloudPubSub.PullClient do
     # pool size is calculated in the BCPS Producer and guaranteed to be here
     pool_size = Keyword.fetch!(producer_opts, :pool_size)
 
-    finch_name = Module.concat(name, PullClient)
+    finch_name =
+      Keyword.get_lazy(producer_opts, :finch_name, fn -> Module.concat(name, PullClient) end)
 
     children = [
       {Finch, name: finch_name, pools: %{default: [size: pool_size]}}

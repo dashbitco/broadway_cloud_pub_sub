@@ -427,6 +427,14 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       assert pool_spec == {Finch, name: SomePipeline.PullClient, pools: %{default: [size: 2]}}
       assert opts == [finch_name: SomePipeline.PullClient, pool_size: 2]
     end
+
+    test "allows custom finch_name" do
+      {[pool_spec], opts} =
+        PullClient.prepare_to_connect(SomePipeline, finch_name: Foo, pool_size: 2)
+
+      assert pool_spec == {Finch, name: Foo, pools: %{default: [size: 2]}}
+      assert opts == [finch_name: Foo, pool_size: 2]
+    end
   end
 
   describe "integration with BroadwayCloudPubSub.Acknowledger" do
