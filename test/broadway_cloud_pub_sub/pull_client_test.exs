@@ -41,6 +41,15 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           },
           "publishTime": "2014-02-14T00:00:02Z"
         }
+      },
+      {
+        "ackId": "4",
+        "message": {
+          "data": null,
+          "messageId": "19917247037",
+          "attributes": {},
+          "publishTime": null
+        }
       }
     ]
   }
@@ -259,7 +268,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       opts: base_opts
     } do
       {:ok, opts} = PullClient.init(base_opts)
-      [message1, message2, message3] = PullClient.receive_messages(10, & &1, opts)
+      [message1, message2, message3, message4] = PullClient.receive_messages(10, & &1, opts)
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
@@ -279,6 +288,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       assert %{
                "number" => "three"
              } = message3.metadata.attributes
+
+      assert message4.metadata.publishTime == nil
     end
 
     test "returns an empty list when an empty response is returned by the server", %{
@@ -488,11 +499,13 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     } do
       {:ok, opts} = PullClient.init(base_opts)
 
-      [message1, message2, message3] = PullClient.receive_messages(10, &{:ack, &1}, opts)
+      [message1, message2, message3, message4] =
+        PullClient.receive_messages(10, &{:ack, &1}, opts)
 
       assert {:ack, _} = message1.acknowledger
       assert {:ack, _} = message2.acknowledger
       assert {:ack, _} = message3.acknowledger
+      assert {:ack, _} = message4.acknowledger
     end
 
     test "with defaults successful messages are acknowledged, and failed messages are ignored", %{
@@ -517,11 +530,11 @@ defmodule BroadwayCloudPubSub.PullClientTest do
         |> Keyword.put(:on_success, :noop)
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
+      [_, _, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, messages, [])
 
-      refute_receive {:acknowledge_dispatched, 3, _}
+      refute_receive {:acknowledge_dispatched, 4, _}
     end
 
     test "when :on_success is :nack, dispatches modifyAckDeadline", %{
@@ -532,12 +545,12 @@ defmodule BroadwayCloudPubSub.PullClientTest do
         |> Keyword.put(:on_success, :nack)
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
+      [_, _, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, messages, [])
 
-      assert_receive {:modack_dispatched, 3, 0}
-      refute_receive {:acknowledge_dispatched, 3, _}
+      assert_receive {:modack_dispatched, 4, 0}
+      refute_receive {:acknowledge_dispatched, 4, _}
     end
 
     test "when :on_success is {:nack, integer}, dispatches modifyAckDeadline", %{
@@ -548,22 +561,22 @@ defmodule BroadwayCloudPubSub.PullClientTest do
         |> Keyword.put(:on_success, {:nack, 300})
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
+      [_, _, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, messages, [])
 
-      assert_receive {:modack_dispatched, 3, 300}
-      refute_receive {:acknowledge_dispatched, 3, _}
+      assert_receive {:modack_dispatched, 4, 300}
+      refute_receive {:acknowledge_dispatched, 4, _}
     end
 
     test "with default :on_failure, failed messages are ignored", %{opts: base_opts} do
       {ack_ref, builder, opts} = init_with_ack_builder(base_opts)
 
-      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
+      [_, _, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, [], messages)
 
-      refute_receive {:acknowledge_dispatched, 3, _}
+      refute_receive {:acknowledge_dispatched, 4, _}
     end
 
     test "when :on_failure is :nack, dispatches modifyAckDeadline", %{
@@ -574,11 +587,11 @@ defmodule BroadwayCloudPubSub.PullClientTest do
         |> Keyword.put(:on_failure, :nack)
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
+      [_, _, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, [], messages)
 
-      assert_receive {:modack_dispatched, 3, 0}
+      assert_receive {:modack_dispatched, 4, 0}
     end
 
     test "when :on_failure is {:nack, integer}, dispatches modifyAckDeadline", %{
@@ -589,11 +602,11 @@ defmodule BroadwayCloudPubSub.PullClientTest do
         |> Keyword.put(:on_failure, {:nack, 60})
         |> init_with_ack_builder()
 
-      [_, _, _] = messages = PullClient.receive_messages(10, builder, opts)
+      [_, _, _, _] = messages = PullClient.receive_messages(10, builder, opts)
 
       Acknowledger.ack(ack_ref, [], messages)
 
-      assert_receive {:modack_dispatched, 3, 60}
+      assert_receive {:modack_dispatched, 4, 60}
     end
   end
 
