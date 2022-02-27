@@ -261,12 +261,14 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
       {:error, message} = opts |> Keyword.put(:receive_timeout, -1) |> PullClient.init()
 
-      assert message == "expected :receive_timeout to be a non-negative integer or :infinity, got: -1"
+      assert message ==
+               "expected :receive_timeout to be a non-negative integer or :infinity, got: -1"
 
       {:error, message} =
         opts |> Keyword.put(:receive_timeout, :an_atom) |> PullClient.init()
 
-      assert message == "expected :receive_timeout to be a non-negative integer or :infinity, got: :an_atom"
+      assert message ==
+               "expected :receive_timeout to be a non-negative integer or :infinity, got: :an_atom"
     end
   end
 
