@@ -166,7 +166,7 @@ defmodule BroadwayCloudPubSub.PullClient do
     body = Jason.encode!(payload)
     headers = headers(config)
 
-    case finch_request(config.finch_name, url, body, headers) do
+    case finch_request(config.finch_name, url, body, headers, config.receive_timeout) do
       {:ok, %Response{status: 200, body: body}} ->
         {:ok, Jason.decode!(body)}
 
@@ -178,10 +178,10 @@ defmodule BroadwayCloudPubSub.PullClient do
     end
   end
 
-  defp finch_request(finch_name, url, body, headers) do
+  defp finch_request(finch_name, url, body, headers, timeout) do
     :post
     |> Finch.build(url, headers, body)
-    |> Finch.request(finch_name, receive_timeout: :infinity)
+    |> Finch.request(finch_name, receive_timeout: timeout)
   end
 
   defp get_token(%{token_generator: {m, f, a}}) do
