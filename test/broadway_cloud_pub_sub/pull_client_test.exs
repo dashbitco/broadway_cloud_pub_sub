@@ -243,6 +243,31 @@ defmodule BroadwayCloudPubSub.PullClientTest do
                |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
                |> PullClient.init()
     end
+    test ":receive_timeout is optional with default value :infinity" do
+      {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
+
+      assert result.receive_timeout == :infinity
+    end
+
+    test ":receive_timeout should be a non-negative integer or :infinity" do
+      opts = [subscription: "projects/foo/subscriptions/bar"]
+
+      {:ok, result} = opts |> Keyword.put(:receive_timeout, 0) |> PullClient.init()
+      assert result.receive_timeout == 0
+
+      {:ok, result} = opts |> Keyword.put(:receive_timeout, :infinity) |> PullClient.init()
+      assert result.receive_timeout == :infinity
+
+      {:error, message} = opts |> Keyword.put(:receive_timeout, -1) |> PullClient.init()
+
+      assert message ==
+               "expected :receive_timeout to be a non-negative integer or :infinity, got: -1"
+
+      {:error, message} = opts |> Keyword.put(:receive_timeout, :an_atom) |> PullClient.init()
+
+      assert message ==
+               "expected :receive_timeout to be a non-negative integer or :infinity, got: :an_atom"
+    end
   end
 
   describe "receive_messages/3" do

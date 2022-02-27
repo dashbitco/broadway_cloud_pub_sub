@@ -31,6 +31,9 @@ defmodule BroadwayCloudPubSub.Producer do
       in the supervision tree. Useful if you are reusing the same module for
       many `Broadway` pipelines. Defaults to `YourModule.PullClient`
 
+    * `:receive_timeout` - Optional. The maximum time to wait for a response before
+      the pull client returns an error. Defaults to `:infinity`.
+
   ### Custom token generator
 
   A custom token generator can be given as a MFArgs tuple.

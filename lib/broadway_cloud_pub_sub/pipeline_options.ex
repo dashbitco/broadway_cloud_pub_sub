@@ -3,6 +3,7 @@ defmodule BroadwayCloudPubSub.PipelineOptions do
   require Logger
 
   @default_max_number_of_messages 10
+  @default_receive_timeout :infinity
 
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
@@ -10,12 +11,14 @@ defmodule BroadwayCloudPubSub.PipelineOptions do
     with(
       {:ok, subscription} <- validate_subscription(opts),
       {:ok, token_generator} <- validate_token_opts(opts),
-      {:ok, pull_request} <- validate_pull_request(opts)
+      {:ok, pull_request} <- validate_pull_request(opts),
+      {:ok, receive_timeout} <- validate(opts, :receive_timeout, @default_receive_timeout)
     ) do
       config = %{
         subscription: subscription,
         token_generator: token_generator,
-        pull_request: pull_request
+        pull_request: pull_request,
+        receive_timeout: receive_timeout
       }
 
       {:ok, config}
@@ -48,6 +51,11 @@ defmodule BroadwayCloudPubSub.PipelineOptions do
 
   defp validate_option(:return_immediately, value) when not is_boolean(value),
     do: validation_error(:return_immediately, "a boolean value", value)
+
+  defp validate_option(:receive_timeout, :infinity), do: {:ok, :infinity}
+
+  defp validate_option(:receive_timeout, value) when not is_integer(value) or value < 0,
+    do: validation_error(:receive_timeout, "a non-negative integer or :infinity", value)
 
   defp validate_option(_, value), do: {:ok, value}
 
