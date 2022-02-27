@@ -46,6 +46,9 @@ defmodule BroadwayCloudPubSub.Producer do
     * `:middleware` - Optional. List of custom Tesla middleware
       Example: `[{Tesla.Middleware.BaseUrl, "https://example.com"}]`
 
+    * `:receive_timeout` - Optional. The maximum time to wait for a response before
+      the pull client returns an error. Defaults to `:infinity`.
+
   ### Custom token generator
 
   A custom token generator can be given as a MFArgs tuple.
