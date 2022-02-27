@@ -243,6 +243,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
                |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
                |> PullClient.init()
     end
+
     test ":receive_timeout is optional with default value :infinity" do
       {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
 
