@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2022-05-09
+
+### Added
+
+- Add `:receive_timeout` option
+
 ## [0.7.0] - 2021-08-30
 
 ### Changed
