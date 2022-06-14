@@ -12,6 +12,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     "receivedMessages": [
       {
         "ackId": "1",
+        "deliveryAttempt": 1,
         "message": {
           "data": "TWVzc2FnZTE=",
           "messageId": "19917247034",
@@ -24,6 +25,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       },
       {
         "ackId": "2",
+        "deliveryAttempt": 2,
         "message": {
           "data": "TWVzc2FnZTI=",
           "messageId": "19917247035",
@@ -33,6 +35,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       },
       {
         "ackId": "3",
+        "deliveryAttempt": 3,
         "message": {
           "data": null,
           "messageId": "19917247036",
@@ -44,6 +47,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       },
       {
         "ackId": "4",
+        "deliveryAttempt": 4,
         "message": {
           "data": null,
           "messageId": "19917247037",
@@ -299,6 +303,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
       assert message1.metadata.messageId == "19917247034"
+      assert message1.metadata.deliveryAttempt == 1
 
       assert %{
                "foo" => "bar",
@@ -308,14 +313,17 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       assert message2.data == "Message2"
       assert message2.metadata.messageId == "19917247035"
       assert message2.metadata.attributes == %{}
+      assert message2.metadata.deliveryAttempt == 2
 
       assert %Message{data: nil} = message3
+      assert message3.metadata.deliveryAttempt == 3
 
       assert %{
                "number" => "three"
              } = message3.metadata.attributes
 
       assert message4.metadata.publishTime == nil
+      assert message4.metadata.deliveryAttempt == 4
     end
 
     test "returns an empty list when an empty response is returned by the server", %{
