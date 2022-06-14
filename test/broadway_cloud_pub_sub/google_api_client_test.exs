@@ -14,6 +14,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
     "receivedMessages": [
       {
         "ackId": "1",
+        "deliveryAttempt": 1,
         "message": {
           "data": "TWVzc2FnZTE=",
           "messageId": "19917247034",
@@ -26,6 +27,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       },
       {
         "ackId": "2",
+        "deliveryAttempt": 2,
         "message": {
           "data": "TWVzc2FnZTI=",
           "messageId": "19917247035",
@@ -35,6 +37,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       },
       {
         "ackId": "3",
+        "deliveryAttempt": 3,
         "message": {
           "data": null,
           "messageId": "19917247036",
@@ -271,6 +274,7 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
 
       assert message1.metadata.messageId == "19917247034"
+      assert message1.metadata.deliveryAttempt == 1
 
       assert %{
                "foo" => "bar",
@@ -279,9 +283,12 @@ defmodule BroadwayCloudPubSub.GoogleApiClientTest do
 
       assert message2.data == "Message2"
       assert message2.metadata.messageId == "19917247035"
+      assert message2.metadata.deliveryAttempt == 2
       assert message2.metadata.attributes == %{}
 
       assert %Message{data: nil} = message3
+
+      assert message3.metadata.deliveryAttempt == 3
 
       assert %{
                "number" => "three"

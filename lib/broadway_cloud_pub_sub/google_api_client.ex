@@ -189,13 +189,16 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
 
   defp wrap_received_messages(received_messages, ack_builder) do
     Enum.map(received_messages, fn received_message ->
-      %ReceivedMessage{message: message, ackId: ack_id} = received_message
+      %ReceivedMessage{deliveryAttempt: attempt, message: message, ackId: ack_id} =
+        received_message
 
       {data, metadata} =
         message
         |> decode_message()
         |> Map.from_struct()
         |> Map.pop(:data)
+
+      metadata = Map.put(metadata, :deliveryAttempt, attempt)
 
       %Message{
         data: data,
