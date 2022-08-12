@@ -238,7 +238,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
                "expected :token_generator to be a tuple {Mod, Fun, Args}, got: SomeModule"
     end
 
-    test ":token_generator supercedes :scope validation" do
+    test ":token_generator supersedes :scope validation" do
       opts = [subscription: "projects/foo/subscriptions/bar"]
 
       assert {:ok, _result} =
