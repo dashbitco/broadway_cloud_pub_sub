@@ -8,11 +8,9 @@ Documentation can be found at [https://hexdocs.pm/broadway_cloud_pub_sub](https:
 
 This project provides:
 
-  * `BroadwayCloudPubSub.Producer` - A GenStage producer that continuously receives messages from
-    a Pub/Sub subscription acknowledges them after being successfully processed.
-  * `BroadwayCloudPubSub.Client` - A generic behaviour to implement Pub/Sub clients.
-  * `BroadwayCloudPubSub.GoogleApiClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
-
+* `BroadwayCloudPubSub.Producer` - A GenStage producer that continuously receives messages from a Pub/Sub subscription acknowledges them after being successfully processed.
+* `BroadwayCloudPubSub.Client` - A generic behaviour to implement Pub/Sub clients.
+* `BroadwayCloudPubSub.GoogleApiClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
 
 ## Installation
 
@@ -26,6 +24,7 @@ def deps do
   ]
 end
 ```
+
 > Note the [goth](https://hexdocs.pm/goth) package, which handles Google Authentication, is required for the default token generator.
 
 ## Usage
@@ -52,7 +51,7 @@ Copyright 2020 Dashbit
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
 
-      http://www.apache.org/licenses/LICENSE-2.0
+  http://www.apache.org/licenses/LICENSE-2.0
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
