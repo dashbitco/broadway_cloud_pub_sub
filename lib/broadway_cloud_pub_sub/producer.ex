@@ -140,29 +140,24 @@ defmodule BroadwayCloudPubSub.Producer do
         2 * broadway_opts[:producer][:concurrency]
       end)
 
-    case NimbleOptions.validate(client_opts, Options.definition()) do
-      {:error, error} ->
-        raise ArgumentError,
-              Options.format_error(error, __MODULE__, :prepare_for_start, 2)
+    opts = NimbleOptions.validate!(client_opts, Options.definition())
 
-      {:ok, opts} ->
-        ack_ref = broadway_opts[:name]
-        client = opts[:client]
+    ack_ref = broadway_opts[:name]
+    client = opts[:client]
 
-        opts =
-          Keyword.put_new_lazy(opts, :token_generator, fn ->
-            Options.make_token_generator(opts)
-          end)
+    opts =
+      Keyword.put_new_lazy(opts, :token_generator, fn ->
+        Options.make_token_generator(opts)
+      end)
 
-        {specs, opts} = prepare_to_connect(module, client, opts)
+    {specs, opts} = prepare_to_connect(module, client, opts)
 
-        :persistent_term.put(ack_ref, Map.new(opts))
+    :persistent_term.put(ack_ref, Map.new(opts))
 
-        broadway_opts_with_defaults =
-          put_in(broadway_opts, [:producer, :module], {producer_module, opts})
+    broadway_opts_with_defaults =
+      put_in(broadway_opts, [:producer, :module], {producer_module, opts})
 
-        {specs, broadway_opts_with_defaults}
-    end
+    {specs, broadway_opts_with_defaults}
   end
 
   defp prepare_to_connect(module, client, producer_opts) do

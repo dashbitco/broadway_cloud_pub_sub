@@ -49,14 +49,14 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
 
   describe "configure/3" do
     test "raise on unsupported configure option" do
-      assert_raise(ArgumentError, ~r/unknown options \[:on_other\]/, fn ->
+      assert_raise(NimbleOptions.ValidationError, ~r/unknown options \[:on_other\]/, fn ->
         Acknowledger.configure(:ack_ref, %{}, on_other: :ack)
       end)
     end
 
     test "raise on unsupported on_success value" do
       assert_raise(
-        ArgumentError,
+        NimbleOptions.ValidationError,
         ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :unknown/,
         fn ->
           Acknowledger.configure(:ack_ref, %{}, on_success: :unknown)
@@ -66,7 +66,7 @@ defmodule BroadwayCloudPubSub.AcknowledgerTest do
 
     test "raise on unsupported on_failure value" do
       assert_raise(
-        ArgumentError,
+        NimbleOptions.ValidationError,
         ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :unknown/,
         fn ->
           Acknowledger.configure(:ack_ref, %{}, on_failure: :unknown)

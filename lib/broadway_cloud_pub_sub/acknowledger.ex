@@ -52,15 +52,10 @@ defmodule BroadwayCloudPubSub.Acknowledger do
 
   @impl Acknowledger
   def configure(_ack_ref, ack_data, options) do
-    case NimbleOptions.validate(options, Options.acknowledger_definition()) do
-      {:ok, opts} ->
-        ack_data = Map.merge(ack_data, Map.new(opts))
-        {:ok, ack_data}
+    opts = NimbleOptions.validate!(options, Options.acknowledger_definition())
+    ack_data = Map.merge(ack_data, Map.new(opts))
 
-      {:error, error} ->
-        raise ArgumentError,
-              Options.format_error(error, __MODULE__, :configure, 3)
-    end
+    {:ok, ack_data}
   end
 
   defp group_actions_ack_ids(messages, key, config) do

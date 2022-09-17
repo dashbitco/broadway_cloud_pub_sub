@@ -1,7 +1,5 @@
 defmodule BroadwayCloudPubSub.Options do
   @moduledoc false
-  alias NimbleOptions.ValidationError
-  require Logger
 
   @default_base_url "https://pubsub.googleapis.com"
 
@@ -158,6 +156,8 @@ defmodule BroadwayCloudPubSub.Options do
 
   defp ensure_goth_loaded() do
     unless Code.ensure_loaded?(Goth.Token) do
+      require Logger
+
       Logger.error("""
       the default authentication token generator uses the Goth library but it's not available
 
@@ -244,15 +244,6 @@ defmodule BroadwayCloudPubSub.Options do
 
   def type_positive_integer_or_infinity(value, [{:name, name}]) do
     {:error, "expected :#{name} to be a positive integer or :infinity, got: #{inspect(value)}"}
-  end
-
-  def format_error(%ValidationError{keys_path: [], message: message}, mod, fun, arity) do
-    "invalid configuration given to #{inspect(mod)}.#{fun}/#{arity}, " <> message
-  end
-
-  def format_error(%ValidationError{keys_path: keys_path, message: message}, mod, fun, arity) do
-    "invalid configuration given to #{inspect(mod)}.#{fun}/#{arity} for key #{inspect(keys_path)}, " <>
-      message
   end
 
   @doc false

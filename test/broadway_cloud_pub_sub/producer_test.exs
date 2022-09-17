@@ -2,6 +2,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
   use ExUnit.Case
 
   alias Broadway.Message
+  alias NimbleOptions.ValidationError
 
   defmodule MessageServer do
     def start_link() do
@@ -128,17 +129,16 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
   describe "prepare_for_start/2 validation" do
     test ":subcription should be a string" do
-      message = """
-      invalid configuration given to BroadwayCloudPubSub.Producer.prepare_for_start/2, \
-      required option :subscription not found, received options: [:client, :pool_size]\
-      """
-
-      assert_raise(ArgumentError, message, fn ->
-        prepare_for_start_module_opts([])
-      end)
+      assert_raise(
+        ValidationError,
+        "required option :subscription not found, received options: [:client, :pool_size]",
+        fn ->
+          prepare_for_start_module_opts([])
+        end
+      )
 
       assert_raise(
-        ArgumentError,
+        ValidationError,
         ~r/expected :subscription to be a non-empty string, got: nil/,
         fn ->
           prepare_for_start_module_opts(subscription: nil)
@@ -146,7 +146,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       )
 
       assert_raise(
-        ArgumentError,
+        ValidationError,
         ~r/expected :subscription to be a non-empty string, got: \"\"/,
         fn ->
           prepare_for_start_module_opts(subscription: "")
@@ -154,7 +154,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       )
 
       assert_raise(
-        ArgumentError,
+        ValidationError,
         ~r/expected :subscription to be a non-empty string, got: :foo/,
         fn ->
           prepare_for_start_module_opts(subscription: :foo)
@@ -216,7 +216,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       assert result_module_opts[:max_number_of_messages] == 10
 
       assert_raise(
-        ArgumentError,
+        ValidationError,
         ~r/expected :max_number_of_messages to be a positive integer, got: 0/,
         fn ->
           prepare_for_start_module_opts(
@@ -227,7 +227,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       )
 
       assert_raise(
-        ArgumentError,
+        ValidationError,
         ~r/expected :max_number_of_messages to be a positive integer, got: -1/,
         fn ->
           prepare_for_start_module_opts(
@@ -265,7 +265,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
       assert {_, _, ["https://example.com"]} = producer_opts[:token_generator]
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :scope to be a non-empty string or tuple, got: :an_atom/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -274,7 +274,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :scope to be a non-empty string or tuple, got: 1/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -283,7 +283,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :scope to be a non-empty string or tuple, got: {}/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -292,7 +292,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :scope to be a non-empty string or tuple, got: {}/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -348,7 +348,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
       assert producer_opts[:token_generator] == token_generator
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :token_generator to be a tuple {Mod, Fun, Args}, got: {1, 1, 1}/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -357,7 +357,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :token_generator to be a tuple {Mod, Fun, Args}, got: SomeModule/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -381,7 +381,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
     test ":receive_timeout should be a positive integer or :infinity" do
       for value <- [0, -1, :an_atom, SomeModule] do
-        assert_raise ArgumentError,
+        assert_raise ValidationError,
                      ~r/expected :receive_timeout to be a positive integer or :infinity, got: #{inspect(value)}/,
                      fn ->
                        prepare_for_start_module_opts(
@@ -447,7 +447,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         assert producer_opts[:on_success] == action
       end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :foo/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -456,7 +456,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: "foo"/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -465,7 +465,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: 1/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -474,7 +474,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: SomeModule/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -501,7 +501,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         assert producer_opts[:on_failure] == action
       end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :foo/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -510,7 +510,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: "foo"/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -519,7 +519,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: 1/,
                    fn ->
                      prepare_for_start_module_opts(
@@ -528,7 +528,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      )
                    end
 
-      assert_raise ArgumentError,
+      assert_raise ValidationError,
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: SomeModule/,
                    fn ->
                      prepare_for_start_module_opts(
