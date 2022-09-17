@@ -14,16 +14,14 @@ defmodule BroadwayCloudPubSub.Producer do
 
   Aside from `:receive_interval` and `:client` which are generic and apply to all
   producers (regardless of the client implementation), all other options are specific to
-  the `BroadwayCloudPubSub.PullClient`, which is the default client.
+  `BroadwayCloudPubSub.PullClient`, which is the default client.
 
   #{NimbleOptions.docs(BroadwayCloudPubSub.Options.definition())}
 
-    * `:finch_name` - Optional. The used name to launch the `Finch` client
+    * `:finch_name` - Optional. The name used to launch the `Finch` pool
       in the supervision tree. Useful if you are reusing the same module for
-      many `Broadway` pipelines. Defaults to `YourModule.PullClient`
-
-    * `:receive_timeout` - Optional. The maximum time to wait for a response before
-      the pull client returns an error. Defaults to `:infinity`.
+      many `Broadway` pipelines. Defaults to a module named `PullClient` in
+      your topology's namespace.
 
   ### Custom token generator
 

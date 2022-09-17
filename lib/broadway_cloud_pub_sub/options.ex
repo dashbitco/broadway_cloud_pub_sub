@@ -6,9 +6,10 @@ defmodule BroadwayCloudPubSub.Options do
   @default_base_url "https://pubsub.googleapis.com"
 
   @default_max_number_of_messages 10
-  @default_receive_timeout :infinity
 
   @default_receive_interval 5_000
+
+  @default_receive_timeout :infinity
 
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
@@ -72,6 +73,15 @@ defmodule BroadwayCloudPubSub.Options do
       doc: """
       The duration (in milliseconds) for which the producer waits
       before making a request for more messages.
+      """
+    ],
+    receive_timeout: [
+      type:
+        {:custom, __MODULE__, :type_positive_integer_or_infinity, [[{:name, :receive_timeout}]]},
+      default: @default_receive_timeout,
+      doc: """
+      The maximum time (in milliseconds) to wait for a response
+      before the pull client returns an error.
       """
     ],
     scope: [
@@ -222,6 +232,18 @@ defmodule BroadwayCloudPubSub.Options do
 
   def type_non_empty_string_or_tagged_tuple(value, _) do
     {:ok, value}
+  end
+
+  def type_positive_integer_or_infinity(value, _) when is_integer(value) and value > 0 do
+    {:ok, value}
+  end
+
+  def type_positive_integer_or_infinity(:infinity, _) do
+    {:ok, :infinity}
+  end
+
+  def type_positive_integer_or_infinity(value, [{:name, name}]) do
+    {:error, "expected :#{name} to be a positive integer or :infinity, got: #{inspect(value)}"}
   end
 
   def format_error(%ValidationError{keys_path: [], message: message}, mod, fun, arity) do

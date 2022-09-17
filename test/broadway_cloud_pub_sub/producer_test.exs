@@ -367,6 +367,45 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    end
     end
 
+    test ":receive_timeout is optional with default value :infinity" do
+      assert {_,
+              [
+                producer: [
+                  module: {BroadwayCloudPubSub.Producer, producer_opts},
+                  concurrency: 1
+                ]
+              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+
+      assert producer_opts[:receive_timeout] == :infinity
+    end
+
+    test ":receive_timeout should be a positive integer or :infinity" do
+      for value <- [0, -1, :an_atom, SomeModule] do
+        assert_raise ArgumentError,
+                     ~r/expected :receive_timeout to be a positive integer or :infinity, got: #{inspect(value)}/,
+                     fn ->
+                       prepare_for_start_module_opts(
+                         subscription: "projects/foo/subscriptions/bar",
+                         receive_timeout: value
+                       )
+                     end
+      end
+
+      assert {_,
+              [
+                producer: [
+                  module: {BroadwayCloudPubSub.Producer, producer_opts},
+                  concurrency: 1
+                ]
+              ]} =
+               prepare_for_start_module_opts(
+                 subscription: "projects/foo/subscriptions/bar",
+                 receive_timeout: 15_000
+               )
+
+      assert producer_opts[:receive_timeout] == 15_000
+    end
+
     test ":on_success defaults to :ack" do
       assert {_,
               [

@@ -117,7 +117,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           finch_name: finch_name,
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          receive_timeout: :infinity
         ]
       }
     end
@@ -215,7 +216,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           finch_name: finch_name,
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          receive_timeout: :infinity
         ]
       }
     end
@@ -265,7 +267,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           finch_name: finch_name,
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          receive_timeout: :infinity
         ]
       }
     end
@@ -358,7 +361,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
            finch_name: finch_name,
            max_number_of_messages: 10,
            subscription: "projects/foo/subscriptions/bar",
-           token_generator: {__MODULE__, :generate_token, []}
+           token_generator: {__MODULE__, :generate_token, []},
+           receive_timeout: :infinity
          ]
        }}
     end
@@ -489,7 +493,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       on_failure: base_opts[:on_failure] || :noop,
       on_success: base_opts[:on_success] || :ack,
       subscription: "projects/test/subscriptions/test-subscription",
-      token_generator: {__MODULE__, :generate_token, []}
+      token_generator: {__MODULE__, :generate_token, []},
+      receive_timeout: base_opts[:receive_timeout] || :infinity
     })
   end
 end
