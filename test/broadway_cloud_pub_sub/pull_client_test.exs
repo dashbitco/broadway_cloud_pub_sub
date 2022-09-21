@@ -92,187 +92,12 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   end
 
   defp init_with_ack_builder(opts) do
+    # mimics workflow from Producer.prepare_for_start/2
+    ack_ref = opts[:broadway][:name]
+    fill_persistent_term(ack_ref, opts)
+
     {:ok, config} = PullClient.init(opts)
-    {:ok, ack_ref} = Acknowledger.init(PullClient, config, opts)
     {ack_ref, Acknowledger.builder(ack_ref), config}
-  end
-
-  describe "validate init options" do
-    test ":subscription is required" do
-      assert PullClient.init([]) ==
-               {:error, "expected :subscription to be a non empty string, got: nil"}
-
-      assert PullClient.init(subscription: nil) ==
-               {:error, "expected :subscription to be a non empty string, got: nil"}
-    end
-
-    test ":subscription should be a valid subscription name" do
-      assert PullClient.init(subscription: "") ==
-               {:error, "expected :subscription to be a non empty string, got: \"\""}
-
-      assert PullClient.init(subscription: :an_atom) ==
-               {:error, "expected :subscription to be a non empty string, got: :an_atom"}
-
-      assert {:ok, %{subscription: subscription}} =
-               PullClient.init(subscription: "projects/foo/subscriptions/bar")
-
-      assert subscription.projects_id == "foo"
-      assert subscription.subscriptions_id == "bar"
-    end
-
-    test ":return_immediately is nil without default value" do
-      {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
-
-      assert is_nil(result.pull_request.returnImmediately)
-    end
-
-    test ":return immediately should be a boolean" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      {:ok, result} = opts |> Keyword.put(:return_immediately, true) |> PullClient.init()
-      assert result.pull_request.returnImmediately == true
-
-      {:ok, result} = opts |> Keyword.put(:return_immediately, false) |> PullClient.init()
-      assert is_nil(result.pull_request.returnImmediately)
-
-      {:error, message} = opts |> Keyword.put(:return_immediately, "true") |> PullClient.init()
-
-      assert message == "expected :return_immediately to be a boolean value, got: \"true\""
-
-      {:error, message} = opts |> Keyword.put(:return_immediately, 0) |> PullClient.init()
-
-      assert message == "expected :return_immediately to be a boolean value, got: 0"
-
-      {:error, message} = opts |> Keyword.put(:return_immediately, :an_atom) |> PullClient.init()
-
-      assert message == "expected :return_immediately to be a boolean value, got: :an_atom"
-    end
-
-    test ":max_number_of_messages is optional with default value 10" do
-      {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
-
-      assert result.pull_request.maxMessages == 10
-    end
-
-    test ":max_number_of_messages should be a positive integer" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 1) |> PullClient.init()
-      assert result.pull_request.maxMessages == 1
-
-      {:ok, result} = opts |> Keyword.put(:max_number_of_messages, 10) |> PullClient.init()
-      assert result.pull_request.maxMessages == 10
-
-      {:error, message} = opts |> Keyword.put(:max_number_of_messages, 0) |> PullClient.init()
-
-      assert message == "expected :max_number_of_messages to be a positive integer, got: 0"
-
-      {:error, message} =
-        opts |> Keyword.put(:max_number_of_messages, :an_atom) |> PullClient.init()
-
-      assert message == "expected :max_number_of_messages to be a positive integer, got: :an_atom"
-    end
-
-    test ":scope should be a string or tuple" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      {:ok, result} = opts |> Keyword.put(:scope, "https://example.com") |> PullClient.init()
-
-      assert {_, _, ["https://example.com"]} = result.token_generator
-
-      {:error, message} = opts |> Keyword.put(:scope, :an_atom) |> PullClient.init()
-
-      assert message == "expected :scope to be a non empty string or tuple, got: :an_atom"
-
-      {:error, message} = opts |> Keyword.put(:scope, 1) |> PullClient.init()
-
-      assert message == "expected :scope to be a non empty string or tuple, got: 1"
-
-      {:error, message} = opts |> Keyword.put(:scope, {}) |> PullClient.init()
-
-      assert message == "expected :scope to be a non empty string or tuple, got: {}"
-
-      {:ok, result} =
-        opts
-        |> Keyword.put(:scope, {"mail@example.com", "https://example.com"})
-        |> PullClient.init()
-
-      assert {_, _, [{"mail@example.com", "https://example.com"}]} = result.token_generator
-    end
-
-    test ":token_generator defaults to using Goth with default scope" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      {:ok, result} = PullClient.init(opts)
-
-      assert result.token_generator ==
-               {BroadwayCloudPubSub.PipelineOptions, :generate_goth_token,
-                ["https://www.googleapis.com/auth/pubsub"]}
-    end
-
-    test ":token_generator should be a tuple {Mod, Fun, Args}" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      token_generator = {Token, :fetch, []}
-
-      {:ok, result} =
-        opts
-        |> Keyword.put(:token_generator, token_generator)
-        |> PullClient.init()
-
-      assert result.token_generator == token_generator
-
-      {:error, message} =
-        opts
-        |> Keyword.put(:token_generator, {1, 1, 1})
-        |> PullClient.init()
-
-      assert message == "expected :token_generator to be a tuple {Mod, Fun, Args}, got: {1, 1, 1}"
-
-      {:error, message} =
-        opts
-        |> Keyword.put(:token_generator, SomeModule)
-        |> PullClient.init()
-
-      assert message ==
-               "expected :token_generator to be a tuple {Mod, Fun, Args}, got: SomeModule"
-    end
-
-    test ":token_generator supersedes :scope validation" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      assert {:ok, _result} =
-               opts
-               |> Keyword.put(:scope, :an_invalid_scope)
-               |> Keyword.put(:token_generator, {__MODULE__, :generate_token, []})
-               |> PullClient.init()
-    end
-
-    test ":receive_timeout is optional with default value :infinity" do
-      {:ok, result} = PullClient.init(subscription: "projects/foo/subscriptions/bar")
-
-      assert result.receive_timeout == :infinity
-    end
-
-    test ":receive_timeout should be a non-negative integer or :infinity" do
-      opts = [subscription: "projects/foo/subscriptions/bar"]
-
-      {:ok, result} = opts |> Keyword.put(:receive_timeout, 0) |> PullClient.init()
-      assert result.receive_timeout == 0
-
-      {:ok, result} = opts |> Keyword.put(:receive_timeout, :infinity) |> PullClient.init()
-      assert result.receive_timeout == :infinity
-
-      {:error, message} = opts |> Keyword.put(:receive_timeout, -1) |> PullClient.init()
-
-      assert message ==
-               "expected :receive_timeout to be a non-negative integer or :infinity, got: -1"
-
-      {:error, message} = opts |> Keyword.put(:receive_timeout, :an_atom) |> PullClient.init()
-
-      assert message ==
-               "expected :receive_timeout to be a non-negative integer or :infinity, got: :an_atom"
-    end
   end
 
   describe "receive_messages/3" do
@@ -286,10 +111,14 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       %{
         pid: test_pid,
         opts: [
+          # will be injected by Broadway at runtime
+          broadway: [name: :Broadway3],
           base_url: base_url,
           finch_name: finch_name,
+          max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          receive_timeout: :infinity
         ]
       }
     end
@@ -343,9 +172,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       opts: base_opts,
       server: server
     } do
-      on_pubsub_request(server, fn _, _ ->
-        {:error, 403, @empty_response}
-      end)
+      on_pubsub_request(server, fn _, _ -> {:error, 403, @empty_response} end)
 
       {:ok, opts} = PullClient.init(base_opts)
 
@@ -383,10 +210,14 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       %{
         pid: test_pid,
         opts: [
+          # will be injected by Broadway at runtime
+          broadway: [name: :Broadway3],
           base_url: base_url,
           finch_name: finch_name,
+          max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          receive_timeout: :infinity
         ]
       }
     end
@@ -430,10 +261,14 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       %{
         pid: test_pid,
         opts: [
-          finch_name: finch_name,
+          # will be injected by Broadway at runtime
+          broadway: [name: :Broadway3],
           base_url: base_url,
+          finch_name: finch_name,
+          max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
-          token_generator: {__MODULE__, :generate_token, []}
+          token_generator: {__MODULE__, :generate_token, []},
+          receive_timeout: :infinity
         ]
       }
     end
@@ -519,11 +354,15 @@ defmodule BroadwayCloudPubSub.PullClientTest do
        %{
          pid: test_pid,
          opts: [
+           # will be injected by Broadway at runtime
+           broadway: [name: :Broadway3],
            base_url: base_url,
-           finch_name: finch_name,
            client: PullClient,
+           finch_name: finch_name,
+           max_number_of_messages: 10,
            subscription: "projects/foo/subscriptions/bar",
-           token_generator: {__MODULE__, :generate_token, []}
+           token_generator: {__MODULE__, :generate_token, []},
+           receive_timeout: :infinity
          ]
        }}
     end
@@ -645,4 +484,17 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   end
 
   def generate_token, do: {:ok, "token.#{System.os_time(:second)}"}
+
+  defp fill_persistent_term(ack_ref, base_opts) do
+    :persistent_term.put(ack_ref, %{
+      base_url: Keyword.fetch!(base_opts, :base_url),
+      client: PullClient,
+      finch_name: Keyword.fetch!(base_opts, :finch_name),
+      on_failure: base_opts[:on_failure] || :noop,
+      on_success: base_opts[:on_success] || :ack,
+      subscription: "projects/test/subscriptions/test-subscription",
+      token_generator: {__MODULE__, :generate_token, []},
+      receive_timeout: base_opts[:receive_timeout] || :infinity
+    })
+  end
 end

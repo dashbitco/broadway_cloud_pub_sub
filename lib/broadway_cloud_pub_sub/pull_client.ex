@@ -1,10 +1,9 @@
 defmodule BroadwayCloudPubSub.PullClient do
   @moduledoc """
-  Pull client using Finch.
+  A subscriptions [pull client](https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/pull) built on `Finch`.
   """
   alias Broadway.Message
   alias BroadwayCloudPubSub.Client
-  alias BroadwayCloudPubSub.PipelineOptions
   alias Finch.Response
 
   require Logger
@@ -19,32 +18,23 @@ defmodule BroadwayCloudPubSub.PullClient do
     finch_name =
       Keyword.get_lazy(producer_opts, :finch_name, fn -> Module.concat(name, PullClient) end)
 
-    children = [
+    specs = [
       {Finch, name: finch_name, pools: %{default: [size: pool_size]}}
     ]
 
     producer_opts = Keyword.put(producer_opts, :finch_name, finch_name)
 
-    {children, producer_opts}
+    {specs, producer_opts}
   end
 
   @impl Client
   def init(opts) do
-    with {:ok, pipeline_config} <- PipelineOptions.validate(opts) do
-      api_config = %{
-        finch_name: opts[:finch_name],
-        base_url: opts[:base_url]
-      }
-
-      finch_config = Map.merge(pipeline_config, api_config)
-
-      {:ok, finch_config}
-    end
+    {:ok, Map.new(opts)}
   end
 
   @impl Client
   def receive_messages(demand, ack_builder, config) do
-    max_messages = min(demand, config.pull_request.maxMessages)
+    max_messages = min(demand, config.max_number_of_messages)
 
     config
     |> execute(:pull, %{"maxMessages" => max_messages})
@@ -158,7 +148,7 @@ defmodule BroadwayCloudPubSub.PullClient do
   defp url(config, :modack), do: url(config, @mod_ack_action)
 
   defp url(config, action) do
-    sub = URI.encode(config.subscription.string)
+    sub = URI.encode(config.subscription)
     path = "/v1/" <> sub <> ":" <> to_string(action)
     config.base_url <> path
   end
