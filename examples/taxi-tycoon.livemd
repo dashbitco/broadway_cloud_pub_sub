@@ -1,0 +1,118 @@
+# NYC Taxi Tycoon
+
+```elixir
+Mix.install([
+  {:goth, "~> 1.3.0"},
+  {:broadway_cloud_pub_sub, "~> 0.8.0-dev", github: "dashbitco/broadway_cloud_pub_sub"}
+])
+```
+
+## Google Cloud Setup
+
+In this tutorial you will need use the `gcloud` command-line tool to create a Google Cloud project and a PubSub subscription to a public topic provided for Google Codelabs.
+
+To install `gcloud` follow the [documentation](https://cloud.google.com/sdk/gcloud/). If you are
+on macOS you may consider installing it with Homebrew:
+
+```
+$ brew install --cask google-cloud-sdk
+```
+
+Now, authenticate the CLI. The fastest way to get started is to login with your own credentials:
+
+```
+$ gcloud auth application-default login
+```
+
+Then, create a new project (you can skip this step if you already have a project):
+
+```
+$ gcloud projects create <your-project-id>
+```
+
+...and create a new subscription to the public topic `projects/pubsub-public-data/topics/taxirides-realtime`:
+
+```
+$ gcloud pubsub subscriptions create taxi-test-sub --project <your-project-id> --topic projects/pubsub-public-data/topics/taxirides-realtime
+Created subscription [projects/my-pubsub/subscriptions/taxi-test-sub].
+```
+
+_That is all. You are ready to begin consuming messages!_
+
+## BroadwayCloudPubSub
+
+```elixir
+defmodule TaxiTycoon.Pipeline do
+  use Broadway
+
+  alias Broadway.Message
+
+  def start_link(opts) do
+    project = Keyword.fetch!(opts, :project)
+    subscription = Keyword.get(opts, :subscription, "taxi-test-sub")
+
+    Broadway.start_link(__MODULE__,
+      name: __MODULE__,
+      producer: [
+        module:
+          {BroadwayCloudPubSub.Producer,
+           subscription: "projects/#{project}/subscriptions/#{subscription}"}
+      ],
+      processors: [
+        default: []
+      ],
+      batchers: [
+        default: [
+          batch_size: 10,
+          batch_timeout: 2_000
+        ]
+      ]
+    )
+  end
+
+  @impl Broadway
+  def handle_message(_, %Message{data: data} = message, _) do
+    IO.inspect(data, label: "Got message")
+    message
+  end
+
+  # The handle_batch/4 callback is only being used here to
+  # ensure we acknowledge messages in batches.
+  @impl Broadway
+  def handle_batch(_, messages, _, _) do
+    messages
+  end
+end
+
+defmodule TaxiTycoon do
+  def main do
+    children = [
+      {Goth, name: TaxiTycoon.Goth},
+      {TaxiTycoon.Pipeline, project: "cs-dev-mcrumm"}
+    ]
+
+    {:ok, _} = Supervisor.start_link(children, strategy: :one_for_one)
+  end
+end
+
+TaxiTycoon.main()
+
+# Unless running from IEx, sleep indefinitely so stages keep running
+unless IEx.started?() do
+  Process.sleep(:infinity)
+end
+```
+
+## Teardown
+
+When you are finished, clean up your cloud resources by deleting your subscription:
+
+```sh
+$ gcloud pubsub subscriptions delete projects/<your-project-id>/subscriptions/taxi-test-sub
+```
+
+...and deleting your project, if so desired:
+
+```sh
+$ gcloud projects delete <your-project-id>
+```
