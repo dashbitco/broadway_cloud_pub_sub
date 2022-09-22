@@ -94,11 +94,13 @@ defmodule BroadwayCloudPubSub.PullClient do
   end
 
   defp pub_sub_msg_to_broadway_msg(pub_sub_msg, ack_builder) do
-    %{
-      "ackId" => ack_id,
-      "deliveryAttempt" => deliveryAttempt,
-      "message" => message
-    } = pub_sub_msg
+    %{"ackId" => ack_id, "message" => message} = pub_sub_msg
+
+    # 2022-09-21 (MC) The docs falsely claim the following:
+    # "If a DeadLetterPolicy is not set on the subscription, this will be 0."
+    # In reality, if DeadLetterPolicy is not set, neither is the deliveryAttempt field.
+    # https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/pull#receivedmessage
+    delivery_attempt = Map.get(pub_sub_msg, "deliveryAttempt")
 
     {data, metadata} =
       message
@@ -107,7 +109,7 @@ defmodule BroadwayCloudPubSub.PullClient do
 
     metadata = %{
       attributes: metadata["attributes"],
-      deliveryAttempt: deliveryAttempt,
+      deliveryAttempt: delivery_attempt,
       messageId: metadata["messageId"],
       publishTime: parse_datetime(metadata["publishTime"])
     }

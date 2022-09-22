@@ -47,7 +47,6 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       },
       {
         "ackId": "4",
-        "deliveryAttempt": 4,
         "message": {
           "data": null,
           "messageId": "19917247037",
@@ -152,7 +151,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
              } = message3.metadata.attributes
 
       assert message4.metadata.publishTime == nil
-      assert message4.metadata.deliveryAttempt == 4
+      refute message4.metadata[:deliveryAttempt]
     end
 
     test "returns an empty list when an empty response is returned by the server", %{
