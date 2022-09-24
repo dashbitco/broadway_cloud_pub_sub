@@ -11,6 +11,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `:deliveryAttempt` field to metadata
 
+- Add `:finch` producer option for a user-defined HTTP pool
+
+### Removed
+
+- The `:pool_size` option has been removed. Define your own [Finch][finch]
+  pool and use the `:finch` option instead.
+
+  For example, if your `:pool_size` was 10, then add Finch to your application
+  supervision tree (usually located in `lib/my_app/application.ex`):
+
+  ```elixir
+  children =
+    [
+      {Finch, name: MyFinch, pools: %{:default => [size: 10]}}
+    ]
+  ```
+
+  ...and wherever you invoke `Broadway.start_link/2`, replace this:
+
+  ```elixir
+  producer: [
+    module:
+      {BroadwayCloudPubSub.Producer,
+       subscription: "projects/<your-project-id>/subscriptions/<your-subscription-id>",
+       pool_size: 10}
+  ]
+  ```
+
+  ...with this:
+
+  ```elixir
+  producer: [
+    module:
+      {BroadwayCloudPubSub.Producer,
+       subscription: "projects/<your-project-id>/subscriptions/<your-subscription-id>",
+       finch: MyFinch}
+  ]
+  ```
+
 ## [0.7.1] - 2022-05-09
 
 ### Added
@@ -139,3 +178,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.1.2]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/releases/tag/v0.1.0
+
+
+[finch]: https://hexdocs.pm/finch
