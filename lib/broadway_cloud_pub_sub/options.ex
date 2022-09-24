@@ -106,7 +106,7 @@ defmodule BroadwayCloudPubSub.Options do
       This option is mostly useful for testing via the Pub/Sub emulator.
       """
     ],
-    finch_name: [
+    finch: [
       type: :atom,
       default: nil,
       doc: """

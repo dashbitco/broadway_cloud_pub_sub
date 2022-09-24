@@ -66,10 +66,10 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     server = Bypass.open()
     base_url = "http://localhost:#{server.port}"
 
-    finch_name = __MODULE__.FinchName
-    _ = start_supervised({Finch, name: finch_name})
+    finch = __MODULE__.Finch
+    _ = start_supervised({Finch, name: finch})
 
-    {:ok, server: server, base_url: base_url, finch_name: finch_name}
+    {:ok, server: server, base_url: base_url, finch: finch}
   end
 
   def on_pubsub_request(server, fun) when is_function(fun, 2) do
@@ -100,7 +100,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   end
 
   describe "receive_messages/3" do
-    setup %{server: server, base_url: base_url, finch_name: finch_name} do
+    setup %{server: server, base_url: base_url, finch: finch} do
       test_pid = self()
 
       on_pubsub_request(server, fn _url, _body ->
@@ -113,7 +113,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           # will be injected by Broadway at runtime
           broadway: [name: :Broadway3],
           base_url: base_url,
-          finch_name: finch_name,
+          finch: finch,
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
@@ -199,7 +199,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   end
 
   describe "acknowledge/2" do
-    setup %{server: server, base_url: base_url, finch_name: finch_name} do
+    setup %{server: server, base_url: base_url, finch: finch} do
       test_pid = self()
 
       on_pubsub_request(server, fn _, _ ->
@@ -212,7 +212,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           # will be injected by Broadway at runtime
           broadway: [name: :Broadway3],
           base_url: base_url,
-          finch_name: finch_name,
+          finch: finch,
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
@@ -250,7 +250,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   end
 
   describe "put_deadline/3" do
-    setup %{server: server, base_url: base_url, finch_name: finch_name} do
+    setup %{server: server, base_url: base_url, finch: finch} do
       test_pid = self()
 
       on_pubsub_request(server, fn _, _ ->
@@ -263,7 +263,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           # will be injected by Broadway at runtime
           broadway: [name: :Broadway3],
           base_url: base_url,
-          finch_name: finch_name,
+          finch: finch,
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
@@ -304,19 +304,19 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     test "returns a child_spec for starting a Finch http pool " do
       {[pool_spec], opts} = PullClient.prepare_to_connect(SomePipeline, [])
       assert pool_spec == {Finch, name: SomePipeline.PullClient}
-      assert opts == [finch_name: SomePipeline.PullClient]
+      assert opts == [finch: SomePipeline.PullClient]
     end
 
-    test "allows custom finch_name" do
-      {specs, opts} = PullClient.prepare_to_connect(SomePipeline, finch_name: Foo)
+    test "allows custom finch" do
+      {specs, opts} = PullClient.prepare_to_connect(SomePipeline, finch: Foo)
 
       assert specs == []
-      assert opts == [finch_name: Foo]
+      assert opts == [finch: Foo]
     end
   end
 
   describe "integration with BroadwayCloudPubSub.Acknowledger" do
-    setup %{server: server, base_url: base_url, finch_name: finch_name} do
+    setup %{server: server, base_url: base_url, finch: finch} do
       test_pid = self()
 
       on_pubsub_request(server, fn url, body ->
@@ -356,7 +356,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
            broadway: [name: :Broadway3],
            base_url: base_url,
            client: PullClient,
-           finch_name: finch_name,
+           finch: finch,
            max_number_of_messages: 10,
            subscription: "projects/foo/subscriptions/bar",
            token_generator: {__MODULE__, :generate_token, []},
@@ -487,7 +487,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     :persistent_term.put(ack_ref, %{
       base_url: Keyword.fetch!(base_opts, :base_url),
       client: PullClient,
-      finch_name: Keyword.fetch!(base_opts, :finch_name),
+      finch: Keyword.fetch!(base_opts, :finch),
       on_failure: base_opts[:on_failure] || :noop,
       on_success: base_opts[:on_success] || :ack,
       subscription: "projects/test/subscriptions/test-subscription",

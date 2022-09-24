@@ -604,7 +604,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
              } = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
     end
 
-    test "with :client PullClient and :finch_name returns empty specs" do
+    test "with :client PullClient and :finch returns empty specs" do
       assert {
                [],
                [
@@ -617,10 +617,10 @@ defmodule BroadwayCloudPubSub.ProducerTest do
              } =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
-                 finch_name: MyFinch
+                 finch: MyFinch
                )
 
-      assert producer_opts[:finch_name] == MyFinch
+      assert producer_opts[:finch] == MyFinch
     end
   end
 
