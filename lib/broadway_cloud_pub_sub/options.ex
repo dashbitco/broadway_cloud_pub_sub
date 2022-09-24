@@ -12,8 +12,6 @@ defmodule BroadwayCloudPubSub.Options do
   @default_scope "https://www.googleapis.com/auth/pubsub"
 
   definition = [
-    # Internal.
-    finch_name: [type: :atom, doc: false],
     # Handled by Broadway.
     broadway: [type: :any, doc: false],
     client: [
@@ -108,11 +106,12 @@ defmodule BroadwayCloudPubSub.Options do
       This option is mostly useful for testing via the Pub/Sub emulator.
       """
     ],
-    pool_size: [
-      type: :pos_integer,
+    finch_name: [
+      type: :atom,
+      default: nil,
       doc: """
-      The size of the connection pool.
-      The default value is twice the producer concurrency.
+      The name of the `Finch` pool. If no name is provided, then a default
+      pool will be started by the pipeline's supervisor.
       """
     ],
     return_immediately: [
@@ -127,6 +126,10 @@ defmodule BroadwayCloudPubSub.Options do
     ],
     message_server: [
       type: :pid,
+      doc: false
+    ],
+    prepare_to_connect_ref: [
+      type: :any,
       doc: false
     ]
   ]

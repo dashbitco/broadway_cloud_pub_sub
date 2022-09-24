@@ -18,11 +18,6 @@ defmodule BroadwayCloudPubSub.Producer do
 
   #{NimbleOptions.docs(BroadwayCloudPubSub.Options.definition())}
 
-    * `:finch_name` - Optional. The name used to launch the `Finch` pool
-      in the supervision tree. Useful if you are reusing the same module for
-      many `Broadway` pipelines. Defaults to a module named `PullClient` in
-      your topology's namespace.
-
   ### Custom token generator
 
   A custom token generator can be given as a MFArgs tuple.
@@ -135,11 +130,6 @@ defmodule BroadwayCloudPubSub.Producer do
   @impl Producer
   def prepare_for_start(_module, broadway_opts) do
     {producer_module, client_opts} = broadway_opts[:producer][:module]
-
-    client_opts =
-      Keyword.put_new_lazy(client_opts, :pool_size, fn ->
-        2 * broadway_opts[:producer][:concurrency]
-      end)
 
     opts = NimbleOptions.validate!(client_opts, Options.definition())
 

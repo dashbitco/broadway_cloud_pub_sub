@@ -302,17 +302,16 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
   describe "prepare_to_connect/2" do
     test "returns a child_spec for starting a Finch http pool " do
-      {[pool_spec], opts} = PullClient.prepare_to_connect(SomePipeline, pool_size: 2)
-      assert pool_spec == {Finch, name: SomePipeline.PullClient, pools: %{default: [size: 2]}}
-      assert opts == [finch_name: SomePipeline.PullClient, pool_size: 2]
+      {[pool_spec], opts} = PullClient.prepare_to_connect(SomePipeline, [])
+      assert pool_spec == {Finch, name: SomePipeline.PullClient}
+      assert opts == [finch_name: SomePipeline.PullClient]
     end
 
     test "allows custom finch_name" do
-      {[pool_spec], opts} =
-        PullClient.prepare_to_connect(SomePipeline, finch_name: Foo, pool_size: 2)
+      {specs, opts} = PullClient.prepare_to_connect(SomePipeline, finch_name: Foo)
 
-      assert pool_spec == {Finch, name: Foo, pools: %{default: [size: 2]}}
-      assert opts == [finch_name: Foo, pool_size: 2]
+      assert specs == []
+      assert opts == [finch_name: Foo]
     end
   end
 

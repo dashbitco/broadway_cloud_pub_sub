@@ -12,14 +12,23 @@ defmodule BroadwayCloudPubSub.PullClient do
 
   @impl Client
   def prepare_to_connect(name, producer_opts) do
-    # pool size is calculated in the BCPS Producer and guaranteed to be here
-    pool_size = Keyword.fetch!(producer_opts, :pool_size)
+    case Keyword.fetch(producer_opts, :finch_name) do
+      {:ok, nil} ->
+        prepare_finch(name, producer_opts)
 
-    finch_name =
-      Keyword.get_lazy(producer_opts, :finch_name, fn -> Module.concat(name, PullClient) end)
+      {:ok, _} ->
+        {[], producer_opts}
+
+      :error ->
+        prepare_finch(name, producer_opts)
+    end
+  end
+
+  defp prepare_finch(name, producer_opts) do
+    finch_name = Module.concat(name, PullClient)
 
     specs = [
-      {Finch, name: finch_name, pools: %{default: [size: pool_size]}}
+      {Finch, name: finch_name}
     ]
 
     producer_opts = Keyword.put(producer_opts, :finch_name, finch_name)
