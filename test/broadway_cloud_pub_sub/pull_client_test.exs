@@ -151,7 +151,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
              } = message3.metadata.attributes
 
       assert message4.metadata.publishTime == nil
-      refute message4.metadata[:deliveryAttempt]
+      assert message4.metadata.deliveryAttempt == nil
     end
 
     test "returns an empty list when an empty response is returned by the server", %{
