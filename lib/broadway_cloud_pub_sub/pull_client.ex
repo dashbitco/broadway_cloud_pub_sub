@@ -25,7 +25,7 @@ defmodule BroadwayCloudPubSub.PullClient do
   end
 
   defp prepare_finch(name, producer_opts) do
-    finch = Module.concat(name, PullClient)
+    finch = Module.concat(name, __MODULE__)
 
     specs = [
       {Finch, name: finch}
