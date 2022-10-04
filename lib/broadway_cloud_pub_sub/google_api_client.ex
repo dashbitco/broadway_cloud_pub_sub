@@ -159,6 +159,11 @@ defmodule BroadwayCloudPubSub.GoogleApiClient do
     []
   end
 
+  defp handle_response({:error, reason, _}, :receive_messages) do
+    Logger.error("Unable to fetch events from Cloud Pub/Sub. Reason: #{inspect_error(reason)}")
+    []
+  end
+
   defp handle_response({:error, reason}, :acknowledge) do
     Logger.error(
       "Unable to acknowledge messages with Cloud Pub/Sub, reason: #{inspect_error(reason)}"
