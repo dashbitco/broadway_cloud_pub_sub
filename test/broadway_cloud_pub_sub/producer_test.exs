@@ -5,16 +5,46 @@ defmodule BroadwayCloudPubSub.ProducerTest do
   alias NimbleOptions.ValidationError
 
   defmodule MessageServer do
-    def start_link() do
-      Agent.start_link(fn -> [] end)
+    use GenServer
+
+    def start_link do
+      GenServer.start_link(__MODULE__, [])
     end
 
-    def push_messages(server, messages) do
-      Agent.update(server, fn queue -> queue ++ messages end)
+    def push_messages(server, messages, timeout \\ 5000) do
+      GenServer.call(server, {:messages, messages}, timeout)
     end
 
-    def take_messages(server, amount) do
-      Agent.get_and_update(server, &Enum.split(&1, amount))
+    def take_messages(server, amount, timeout \\ 5000) do
+      GenServer.call(server, {:take, amount}, timeout)
+    end
+
+    def init(_opts) do
+      {:ok, %{queue: [], awaiting: nil}}
+    end
+
+    def handle_call({:messages, messages}, _from, state) do
+      messages = Enum.to_list(messages)
+
+      if state.awaiting do
+        {to_return, to_keep} = Enum.split(state.queue ++ messages, state.awaiting.amount)
+        GenServer.reply(state.awaiting.from, to_return)
+
+        {:reply, :ok, %{state | awaiting: nil, queue: state.queue ++ to_keep}}
+      else
+        {:reply, :ok, %{state | queue: state.queue ++ messages}}
+      end
+    end
+
+    def handle_call({:take, amount}, from, state) do
+      if length(state.queue) != 0 do
+        {to_return, to_keep} = Enum.split(state.queue, amount)
+
+        {:reply, to_return, %{state | queue: to_keep}}
+      else
+        state = %{state | awaiting: %{from: from, amount: amount}}
+        {:noreply, state}
+      end
     end
   end
 
@@ -627,8 +657,6 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       assert_receive {:message_handled, ^msg}
     end
 
-    assert_receive {:messages_received, 0}
-
     stop_broadway(pid)
   end
 
@@ -640,7 +668,6 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     assert_receive {:messages_received, 1}
     assert_receive {:message_handled, 13}
 
-    assert_receive {:messages_received, 0}
     refute_receive {:message_handled, _}
 
     MessageServer.push_messages(message_server, [14, 15])
@@ -658,13 +685,10 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
     [producer] = Broadway.producer_names(broadway_name)
 
-    assert_receive {:messages_received, 0}
+    Broadway.Topology.ProducerStage.drain(producer)
+    :sys.get_state(producer)
 
-    :sys.suspend(producer)
-    flush_messages_received()
-    task = Task.async(fn -> Broadway.Topology.ProducerStage.drain(producer) end)
-    :sys.resume(producer)
-    Task.await(task)
+    MessageServer.push_messages(message_server, [14, 15])
 
     refute_receive {:messages_received, _}, 10
 
@@ -758,14 +782,6 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
     receive do
       {:DOWN, ^ref, _, _, _} -> :ok
-    end
-  end
-
-  defp flush_messages_received() do
-    receive do
-      {:messages_received, 0} -> flush_messages_received()
-    after
-      0 -> :ok
     end
   end
 end

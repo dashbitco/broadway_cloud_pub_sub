@@ -127,7 +127,8 @@ defmodule BroadwayCloudPubSub.Producer do
        receive_timer: nil,
        receive_interval: receive_interval,
        client: {client, config},
-       ack_ref: ack_ref
+       ack_ref: ack_ref,
+       worker_task: nil
      }}
   end
 
@@ -182,6 +183,25 @@ defmodule BroadwayCloudPubSub.Producer do
     handle_receive_messages(%{state | receive_timer: nil})
   end
 
+  def handle_info({ref, messages}, %{demand: demand} = state) when ref == state.worker_task.ref do
+    new_demand = demand - length(messages)
+
+    receive_timer =
+      case {messages, new_demand} do
+        {[], _} ->
+          schedule_receive_messages(state.receive_interval)
+
+        {_, 0} ->
+          nil
+
+        _ ->
+          schedule_receive_messages(0)
+      end
+
+    {:noreply, messages,
+     %{state | demand: new_demand, receive_timer: receive_timer, worker_task: nil}}
+  end
+
   @impl true
   def handle_info(_, state) do
     {:noreply, [], state}
@@ -190,21 +210,19 @@ defmodule BroadwayCloudPubSub.Producer do
   @impl Producer
   def prepare_for_draining(%{receive_timer: receive_timer} = state) do
     receive_timer && Process.cancel_timer(receive_timer)
-    {:noreply, [], %{state | receive_timer: nil}}
+
+    if state.worker_task do
+      Task.shutdown(state.worker_task, :brutal_kill)
+    end
+
+    {:noreply, [], %{state | receive_timer: nil, worker_task: nil}}
   end
 
-  defp handle_receive_messages(%{receive_timer: nil, demand: demand} = state) when demand > 0 do
-    messages = receive_messages_from_pubsub(state, demand)
-    new_demand = demand - length(messages)
+  defp handle_receive_messages(%{receive_timer: nil, demand: demand, worker_task: nil} = state)
+       when demand > 0 do
+    task = receive_messages_from_pubsub(state, demand)
 
-    receive_timer =
-      case {messages, new_demand} do
-        {[], _} -> schedule_receive_messages(state.receive_interval)
-        {_, 0} -> nil
-        _ -> schedule_receive_messages(0)
-      end
-
-    {:noreply, messages, %{state | demand: new_demand, receive_timer: receive_timer}}
+    {:noreply, [], %{state | worker_task: task}}
   end
 
   defp handle_receive_messages(state) do
@@ -213,7 +231,10 @@ defmodule BroadwayCloudPubSub.Producer do
 
   defp receive_messages_from_pubsub(state, total_demand) do
     %{client: {client, opts}, ack_ref: ack_ref} = state
-    client.receive_messages(total_demand, Acknowledger.builder(ack_ref), opts)
+
+    Task.async(fn ->
+      client.receive_messages(total_demand, Acknowledger.builder(ack_ref), opts)
+    end)
   end
 
   defp schedule_receive_messages(interval) do
