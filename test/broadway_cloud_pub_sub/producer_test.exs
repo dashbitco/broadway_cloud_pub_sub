@@ -150,7 +150,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         producer: [
           module: {BroadwayCloudPubSub.Producer, module_opts},
           concurrency: 1
-        ]
+        ],
+        name: __MODULE__
       )
     after
       stop_broadway(pid)
@@ -197,7 +198,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                  producer: [
                    module: {BroadwayCloudPubSub.Producer, producer_opts},
                    concurrency: 1
-                 ]
+                 ],
+                 name: __MODULE__
                ]
              } = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
@@ -210,7 +212,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:max_number_of_messages] == 10
@@ -222,7 +225,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, result_module_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
@@ -236,7 +240,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, result_module_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
@@ -274,7 +279,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:scope] == "https://www.googleapis.com/auth/pubsub"
@@ -286,7 +292,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
@@ -336,7 +343,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
@@ -353,7 +361,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:token_generator] ==
@@ -369,7 +378,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
@@ -403,7 +413,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:receive_timeout] == :infinity
@@ -426,7 +437,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
@@ -442,7 +454,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:on_success] == :ack
@@ -454,7 +467,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:on_failure] == :noop
@@ -467,7 +481,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   producer: [
                     module: {BroadwayCloudPubSub.Producer, producer_opts},
                     concurrency: 1
-                  ]
+                  ],
+                  name: __MODULE__
                 ]} =
                  prepare_for_start_module_opts(
                    subscription: "projects/foo/subscriptions/bar",
@@ -521,7 +536,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   producer: [
                     module: {BroadwayCloudPubSub.Producer, producer_opts},
                     concurrency: 1
-                  ]
+                  ],
+                  name: __MODULE__
                 ]} =
                  prepare_for_start_module_opts(
                    subscription: "projects/foo/subscriptions/bar",
@@ -574,7 +590,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
                  on_failure: :nack,
@@ -592,7 +609,8 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 producer: [
                   module: {BroadwayCloudPubSub.Producer, producer_opts},
                   concurrency: 1
-                ]
+                ],
+                name: __MODULE__
               ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:pool_size] == 2
@@ -602,14 +620,14 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       assert {
                [
                  {Finch,
-                  name: BroadwayCloudPubSub.ProducerTest.Forwarder.PullClient,
-                  pools: %{default: [size: 5]}}
+                  name: BroadwayCloudPubSub.ProducerTest.PullClient, pools: %{default: [size: 5]}}
                ],
                [
                  producer: [
                    module: {BroadwayCloudPubSub.Producer, _producer_opts},
                    concurrency: 1
-                 ]
+                 ],
+                 name: __MODULE__
                ]
              } =
                prepare_for_start_module_opts(
@@ -731,6 +749,18 @@ defmodule BroadwayCloudPubSub.ProducerTest do
 
       stop_broadway(pid)
     end
+  end
+
+  test "support multiple topologies" do
+    {:ok, message_server} = MessageServer.start_link()
+    broadway_name = new_unique_name()
+    {:ok, pid_1} = start_broadway(broadway_name, message_server, FakePoolClient, pool_size: 20)
+    {:ok, message_server} = MessageServer.start_link()
+    broadway_name = new_unique_name()
+    {:ok, pid_2} = start_broadway(broadway_name, message_server, FakePoolClient, pool_size: 20)
+
+    stop_broadway(pid_1)
+    stop_broadway(pid_2)
   end
 
   defp start_broadway(
