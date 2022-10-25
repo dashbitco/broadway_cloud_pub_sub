@@ -12,17 +12,26 @@ defmodule BroadwayCloudPubSub.PullClient do
 
   @impl Client
   def prepare_to_connect(name, producer_opts) do
-    # pool size is calculated in the BCPS Producer and guaranteed to be here
-    pool_size = Keyword.fetch!(producer_opts, :pool_size)
+    case Keyword.fetch(producer_opts, :finch) do
+      {:ok, nil} ->
+        prepare_finch(name, producer_opts)
 
-    finch_name =
-      Keyword.get_lazy(producer_opts, :finch_name, fn -> Module.concat(name, PullClient) end)
+      {:ok, _} ->
+        {[], producer_opts}
+
+      :error ->
+        prepare_finch(name, producer_opts)
+    end
+  end
+
+  defp prepare_finch(name, producer_opts) do
+    finch = Module.concat(name, __MODULE__)
 
     specs = [
-      {Finch, name: finch_name, pools: %{default: [size: pool_size]}}
+      {Finch, name: finch}
     ]
 
-    producer_opts = Keyword.put(producer_opts, :finch_name, finch_name)
+    producer_opts = Keyword.put(producer_opts, :finch, finch)
 
     {specs, producer_opts}
   end
@@ -160,7 +169,7 @@ defmodule BroadwayCloudPubSub.PullClient do
     body = Jason.encode!(payload)
     headers = headers(config)
 
-    case finch_request(config.finch_name, url, body, headers, config.receive_timeout) do
+    case finch_request(config.finch, url, body, headers, config.receive_timeout) do
       {:ok, %Response{status: 200, body: body}} ->
         {:ok, Jason.decode!(body)}
 
@@ -172,10 +181,10 @@ defmodule BroadwayCloudPubSub.PullClient do
     end
   end
 
-  defp finch_request(finch_name, url, body, headers, timeout) do
+  defp finch_request(finch, url, body, headers, timeout) do
     :post
     |> Finch.build(url, headers, body)
-    |> Finch.request(finch_name, receive_timeout: timeout)
+    |> Finch.request(finch, receive_timeout: timeout)
   end
 
   defp get_token(%{token_generator: {m, f, a}}) do

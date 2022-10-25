@@ -80,46 +80,32 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     end
   end
 
-  defmodule FakePool do
-    use GenServer
-
-    def start_link(opts) do
-      GenServer.start_link(__MODULE__, opts, name: opts[:name])
-    end
-
-    def init(opts) do
-      send(opts[:test_pid], {:pool_started, opts[:name]})
-
-      {:ok, opts}
-    end
-
-    def child_spec(name, opts) do
-      {__MODULE__, Keyword.put(opts, :name, name)}
-    end
-
-    def pool_size(pool), do: GenServer.call(pool, :pool_size)
-
-    def handle_call(:pool_size, _, opts) do
-      {:reply, opts[:pool_size], opts}
-    end
-  end
-
-  defmodule FakePoolClient do
+  defmodule FakePrepareToConnectClient do
     alias BroadwayCloudPubSub.Client
 
     @behaviour Client
 
     @impl Client
-    def prepare_to_connect(module, opts) do
-      pool = Module.concat(module, FakePool)
-      pool_spec = FakePool.child_spec(pool, opts)
+    def prepare_to_connect(_module, opts) do
+      ref =
+        opts[:prepare_to_connect_ref] ||
+          raise "expected :prepare_to_connect_ref option to be set, but it was not"
 
-      {[pool_spec], Keyword.put(opts, :__connection_pool__, pool)}
+      test_pid = opts[:test_pid]
+
+      task =
+        {Task,
+         fn ->
+           send(test_pid, {:prepare_to_connect_spec, ref})
+           Process.sleep(:infinity)
+         end}
+
+      {[task], Keyword.put(opts, :prepare_to_connect_ref, ref)}
     end
 
     @impl Client
     def init(opts) do
-      send(opts[:test_pid], {:connection_pool_set, opts[:__connection_pool__]})
+      send(opts[:test_pid], {:prepare_to_connect_opts, opts[:prepare_to_connect_ref]})
 
       {:ok, opts}
     end
@@ -162,7 +148,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     test ":subcription should be a string" do
       assert_raise(
         ValidationError,
-        "required option :subscription not found, received options: [:client, :pool_size]",
+        "required option :subscription not found, received options: [:client]",
         fn ->
           prepare_for_start_module_opts([])
         end
@@ -603,24 +589,10 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       assert producer_opts[:on_failure] == {:nack, 0}
     end
 
-    test ":pool_size is optional with default value twice the producer concurrency" do
-      assert {_,
-              [
-                producer: [
-                  module: {BroadwayCloudPubSub.Producer, producer_opts},
-                  concurrency: 1
-                ],
-                name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
-
-      assert producer_opts[:pool_size] == 2
-    end
-
     test "with :client PullClient returns a child_spec for starting a Finch pool" do
       assert {
                [
-                 {Finch,
-                  name: BroadwayCloudPubSub.ProducerTest.PullClient, pools: %{default: [size: 5]}}
+                 {Finch, name: BroadwayCloudPubSub.ProducerTest.BroadwayCloudPubSub.PullClient}
                ],
                [
                  producer: [
@@ -629,11 +601,26 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                  ],
                  name: __MODULE__
                ]
+             } = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+    end
+
+    test "with :client PullClient and :finch returns empty specs" do
+      assert {
+               [],
+               [
+                 producer: [
+                   module: {BroadwayCloudPubSub.Producer, producer_opts},
+                   concurrency: 1
+                 ],
+                 name: __MODULE__
+               ]
              } =
                prepare_for_start_module_opts(
                  subscription: "projects/foo/subscriptions/bar",
-                 pool_size: 5
+                 finch: MyFinch
                )
+
+      assert producer_opts[:finch] == MyFinch
     end
   end
 
@@ -726,26 +713,18 @@ defmodule BroadwayCloudPubSub.ProducerTest do
   end
 
   describe "calling Client.prepare_to_connect/2" do
-    test "with default options, pool_size is twice the producers" do
+    test "with default options" do
       {:ok, message_server} = MessageServer.start_link()
       broadway_name = new_unique_name()
-      {:ok, pid} = start_broadway(broadway_name, message_server, FakePoolClient)
+      ref = make_ref()
 
-      assert_receive {:pool_started, pool}, 500
-      assert_receive {:connection_pool_set, ^pool}, 500
-      assert FakePool.pool_size(pool) == 2
+      {:ok, pid} =
+        start_broadway(broadway_name, message_server, FakePrepareToConnectClient,
+          prepare_to_connect_ref: ref
+        )
 
-      stop_broadway(pid)
-    end
-
-    test "with user-defined pool_size" do
-      {:ok, message_server} = MessageServer.start_link()
-      broadway_name = new_unique_name()
-      {:ok, pid} = start_broadway(broadway_name, message_server, FakePoolClient, pool_size: 20)
-
-      assert_receive {:pool_started, pool}, 500
-      assert_receive {:connection_pool_set, ^pool}, 500
-      assert FakePool.pool_size(pool) == 20
+      assert_receive {:prepare_to_connect_spec, ^ref}, 500
+      assert_receive {:prepare_to_connect_opts, ^ref}, 500
 
       stop_broadway(pid)
     end
@@ -754,10 +733,10 @@ defmodule BroadwayCloudPubSub.ProducerTest do
   test "support multiple topologies" do
     {:ok, message_server} = MessageServer.start_link()
     broadway_name = new_unique_name()
-    {:ok, pid_1} = start_broadway(broadway_name, message_server, FakePoolClient, pool_size: 20)
+    {:ok, pid_1} = start_broadway(broadway_name, message_server, FakeClient)
     {:ok, message_server} = MessageServer.start_link()
     broadway_name = new_unique_name()
-    {:ok, pid_2} = start_broadway(broadway_name, message_server, FakePoolClient, pool_size: 20)
+    {:ok, pid_2} = start_broadway(broadway_name, message_server, FakeClient)
 
     stop_broadway(pid_1)
     stop_broadway(pid_2)
