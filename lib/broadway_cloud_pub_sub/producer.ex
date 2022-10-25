@@ -133,7 +133,7 @@ defmodule BroadwayCloudPubSub.Producer do
   end
 
   @impl Producer
-  def prepare_for_start(module, broadway_opts) do
+  def prepare_for_start(_module, broadway_opts) do
     {producer_module, client_opts} = broadway_opts[:producer][:module]
 
     client_opts =
@@ -151,7 +151,7 @@ defmodule BroadwayCloudPubSub.Producer do
         Options.make_token_generator(opts)
       end)
 
-    {specs, opts} = prepare_to_connect(module, client, opts)
+    {specs, opts} = prepare_to_connect(broadway_opts[:name], client, opts)
 
     :persistent_term.put(ack_ref, Map.new(opts))
 
@@ -183,7 +183,7 @@ defmodule BroadwayCloudPubSub.Producer do
     handle_receive_messages(%{state | receive_timer: nil})
   end
 
-  def handle_info({ref, messages}, %{demand: demand} = state) when ref == state.worker_task.ref do
+  def handle_info({ref, messages}, %{demand: demand, worker_task: %{ref: ref}} = state) do
     new_demand = demand - length(messages)
 
     receive_timer =
