@@ -41,7 +41,7 @@ defmodule BroadwayCloudPubSub.PullClient do
       %{
         max_messages: max_messages,
         demand: demand,
-        topology_name: config.broadway[:name]
+        name: config.broadway[:name]
       },
       fn ->
         result =
@@ -51,7 +51,7 @@ defmodule BroadwayCloudPubSub.PullClient do
           |> wrap_received_messages(ack_builder)
 
         {result,
-         %{topology_name: config.broadway[:name], max_messages: max_messages, demand: demand}}
+         %{name: config.broadway[:name], max_messages: max_messages, demand: demand}}
       end
     )
   end
@@ -72,14 +72,14 @@ defmodule BroadwayCloudPubSub.PullClient do
   def acknowledge(ack_ids, config) do
     :telemetry.span(
       [:broadway_cloud_pub_sub, :pull_client, :ack],
-      %{topology_name: config.topology_name},
+      %{name: config.topology_name},
       fn ->
         result =
           config
           |> execute(:acknowledge, %{"ackIds" => ack_ids})
           |> handle_response(:acknowledge)
 
-        {result, %{topology_name: config.topology_name}}
+        {result, %{name: config.topology_name}}
       end
     )
   end
