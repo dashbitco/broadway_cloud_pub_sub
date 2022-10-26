@@ -50,8 +50,7 @@ defmodule BroadwayCloudPubSub.PullClient do
           |> handle_response(:receive_messages)
           |> wrap_received_messages(ack_builder)
 
-        {result,
-         %{name: config.broadway[:name], max_messages: max_messages, demand: demand}}
+        {result, %{name: config.broadway[:name], max_messages: max_messages, demand: demand}}
       end
     )
   end
