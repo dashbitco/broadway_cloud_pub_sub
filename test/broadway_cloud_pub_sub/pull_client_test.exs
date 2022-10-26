@@ -305,10 +305,10 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       PullClient.acknowledge(["1", "2", "3"], opts)
 
       assert_received {:start, metadata}
-      assert metadata.topology_name == Broadway3
+      assert metadata.name == Broadway3
       assert_received {:stop, measurements, metadata}
       assert is_integer(measurements.duration)
-      assert metadata.topology_name == Broadway3
+      assert metadata.name == Broadway3
 
       :telemetry.detach(:start_handler)
       :telemetry.detach(:stop_handler)
