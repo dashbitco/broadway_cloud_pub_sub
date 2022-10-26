@@ -196,6 +196,38 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       assert_received {:http_request_called, %{body: body, url: _url}}
       assert body["maxMessages"] == 5
     end
+
+    test "exposes telemetry for pull requests", %{opts: base_opts} do
+      :telemetry.attach(
+        :start_handler,
+        [:broadway_cloud_pub_sub, :pull_client, :receive_messages, :start],
+        fn _name, _measurements, metadata, _config ->
+          send(self(), {:start, metadata})
+        end,
+        %{}
+      )
+
+      :telemetry.attach(
+        :stop_handler,
+        [:broadway_cloud_pub_sub, :pull_client, :receive_messages, :stop],
+        fn _name, measurements, _metadata, _config ->
+          send(self(), {:stop, measurements})
+        end,
+        %{}
+      )
+
+      {:ok, opts} = base_opts |> Keyword.put(:max_number_of_messages, 5) |> PullClient.init()
+      PullClient.receive_messages(10, & &1, opts)
+
+      assert_received {:start, metadata}
+      assert_received {:stop, measurements}
+      assert metadata.demand == 10
+      assert metadata.max_messages == 5
+      assert is_integer(measurements.duration)
+
+      :telemetry.detach(:start_handler)
+      :telemetry.detach(:stop_handler)
+    end
   end
 
   describe "acknowledge/2" do
@@ -216,7 +248,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
-          receive_timeout: :infinity
+          receive_timeout: :infinity,
+          topology_name: Broadway3
         ]
       }
     end
@@ -247,6 +280,39 @@ defmodule BroadwayCloudPubSub.PullClientTest do
                assert PullClient.acknowledge(["1", "2"], opts) == :ok
              end) =~ "[error] Unable to acknowledge messages with Cloud Pub/Sub - reason: "
     end
+
+    test "emits telemetry events", %{opts: base_opts} do
+      :telemetry.attach(
+        :start_handler,
+        [:broadway_cloud_pub_sub, :pull_client, :ack, :start],
+        fn _name, _measurements, metadata, _config ->
+          send(self(), {:start, metadata})
+        end,
+        %{}
+      )
+
+      :telemetry.attach(
+        :stop_handler,
+        [:broadway_cloud_pub_sub, :pull_client, :ack, :stop],
+        fn _name, measurements, metadata, _config ->
+          send(self(), {:stop, measurements, metadata})
+        end,
+        %{}
+      )
+
+      {:ok, opts} = PullClient.init(base_opts)
+
+      PullClient.acknowledge(["1", "2", "3"], opts)
+
+      assert_received {:start, metadata}
+      assert metadata.name == Broadway3
+      assert_received {:stop, measurements, metadata}
+      assert is_integer(measurements.duration)
+      assert metadata.name == Broadway3
+
+      :telemetry.detach(:start_handler)
+      :telemetry.detach(:stop_handler)
+    end
   end
 
   describe "put_deadline/3" do
@@ -267,7 +333,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
-          receive_timeout: :infinity
+          receive_timeout: :infinity,
+          topology_name: Broadway3
         ]
       }
     end
@@ -360,7 +427,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
            max_number_of_messages: 10,
            subscription: "projects/foo/subscriptions/bar",
            token_generator: {__MODULE__, :generate_token, []},
-           receive_timeout: :infinity
+           receive_timeout: :infinity,
+           toplogy_name: Broadway3
          ]
        }}
     end
@@ -492,7 +560,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       on_success: base_opts[:on_success] || :ack,
       subscription: "projects/test/subscriptions/test-subscription",
       token_generator: {__MODULE__, :generate_token, []},
-      receive_timeout: base_opts[:receive_timeout] || :infinity
+      receive_timeout: base_opts[:receive_timeout] || :infinity,
+      topology_name: Broadway3
     })
   end
 end

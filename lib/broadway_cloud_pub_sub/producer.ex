@@ -100,6 +100,28 @@ defmodule BroadwayCloudPubSub.Producer do
   The above configuration will set up a producer that continuously receives
   messages from `"projects/my-project/subscriptions/my_subscription"` and sends
   them downstream.
+
+  ## Telemetry
+
+  This producer emits a few [Telemetry](https://github.com/beam-telemetry/telemetry)
+  events which are listed below.
+
+    * `[:broadway_cloud_pub_sub, :pull_client, :pull_request, :start | :stop | :exception]` spans -
+      these events are emitted in "span style" when executing pull requests to GCP PubSub.
+      See `:telemetry.span/3`.
+
+      All these events have the measurements described in `:telemetry.span/3`. The events
+      contain the following metadata:
+
+      * `:requested_messages` - the number of messages requested after applying the `max_messages`
+      config option to the existing demand
+      * `:total_demand` - the total demand accumulated into the producer
+
+    * `[:broadway_cloud_pub_sub, :pull_client, :ack, :start | :stop | :exception]` span - these events
+      are emitted in "span style" when acking messages on GCP PubSub. See `:telemetry.span/3`.
+
+      All these events have the measurements described in `:telemetry.span/3`. The events
+      contain no metadata.
   """
 
   use GenStage
@@ -143,7 +165,9 @@ defmodule BroadwayCloudPubSub.Producer do
 
     {specs, opts} = prepare_to_connect(broadway_opts[:name], client, opts)
 
-    :persistent_term.put(ack_ref, Map.new(opts))
+    ack_opts = Keyword.put(opts, :topology_name, broadway_opts[:name])
+
+    :persistent_term.put(ack_ref, Map.new(ack_opts))
 
     broadway_opts_with_defaults =
       put_in(broadway_opts, [:producer, :module], {producer_module, opts})
