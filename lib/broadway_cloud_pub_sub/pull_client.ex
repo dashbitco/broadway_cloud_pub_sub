@@ -37,10 +37,10 @@ defmodule BroadwayCloudPubSub.PullClient do
     max_messages = min(demand, config.max_number_of_messages)
 
     :telemetry.span(
-      [:broadway_cloud_pub_sub, :pull_client, :pull_request],
+      [:broadway_cloud_pub_sub, :pull_client, :receive_messages],
       %{
-        requested_messages: max_messages,
-        total_demand: demand,
+        max_messages: max_messages,
+        demand: demand,
         topology_name: config.broadway[:name]
       },
       fn ->
@@ -50,7 +50,8 @@ defmodule BroadwayCloudPubSub.PullClient do
           |> handle_response(:receive_messages)
           |> wrap_received_messages(ack_builder)
 
-        {result, %{topology_name: config.broadway[:name]}}
+        {result,
+         %{topology_name: config.broadway[:name], max_messages: max_messages, demand: demand}}
       end
     )
   end

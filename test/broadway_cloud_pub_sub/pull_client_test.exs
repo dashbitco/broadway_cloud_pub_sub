@@ -200,7 +200,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     test "exposes telemetry for pull requests", %{opts: base_opts} do
       :telemetry.attach(
         :start_handler,
-        [:broadway_cloud_pub_sub, :pull_client, :pull_request, :start],
+        [:broadway_cloud_pub_sub, :pull_client, :receive_messages, :start],
         fn _name, _measurements, metadata, _config ->
           send(self(), {:start, metadata})
         end,
@@ -209,7 +209,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
       :telemetry.attach(
         :stop_handler,
-        [:broadway_cloud_pub_sub, :pull_client, :pull_request, :stop],
+        [:broadway_cloud_pub_sub, :pull_client, :receive_messages, :stop],
         fn _name, measurements, _metadata, _config ->
           send(self(), {:stop, measurements})
         end,
@@ -221,8 +221,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
       assert_received {:start, metadata}
       assert_received {:stop, measurements}
-      assert metadata.total_demand == 10
-      assert metadata.requested_messages == 5
+      assert metadata.demand == 10
+      assert metadata.max_messages == 5
       assert is_integer(measurements.duration)
 
       :telemetry.detach(:start_handler)
