@@ -5,13 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - 2022-10-26
+
+This version moves Cloud PubSub from Tesla to Finch, so read the notes below and upgrade with care.
 
 ### Added
 
-- Add `:deliveryAttempt` field to metadata
+- Use `:finch` as the HTTP client and provide a `:finch` producer option for a user-defined HTTP pool
 
-- Add `:finch` producer option for a user-defined HTTP pool
+- Make HTTP requests in a separate process for cleaner shutdown
+
+- Support multiple topologies from the same Brodway module
+
+- Add telemetry events around HTTP requests
+
+- Add `:deliveryAttempt` field to metadata
 
 ### Removed
 
