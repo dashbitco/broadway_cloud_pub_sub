@@ -113,15 +113,18 @@ defmodule BroadwayCloudPubSub.Producer do
       All these events have the measurements described in `:telemetry.span/3`. The events
       contain the following metadata:
 
-      * `:requested_messages` - the number of messages requested after applying the `max_messages`
+      * `:max_messages` - the number of messages requested after applying the `max_messages`
       config option to the existing demand
-      * `:total_demand` - the total demand accumulated into the producer
+      * `:demand` - the total demand accumulated into the producer
+      * `:name` - the name of the Broadway topology
 
     * `[:broadway_cloud_pub_sub, :pull_client, :ack, :start | :stop | :exception]` span - these events
       are emitted in "span style" when acking messages on GCP PubSub. See `:telemetry.span/3`.
 
       All these events have the measurements described in `:telemetry.span/3`. The events
-      contain no metadata.
+      contain the following metadata:
+
+      * `:name` - the name of the Broadway topology
   """
 
   use GenStage
