@@ -62,6 +62,23 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   {}
   """
 
+  @ordered_response """
+  {
+    "receivedMessages": [
+      {
+        "ackId": "1",
+        "deliveryAttempt": 1,
+        "message": {
+          "data": "TWVzc2FnZTE=",
+          "messageId": "19917247038",
+          "publishTime": "2014-02-14T00:00:03Z",
+          "orderingKey": "key1"
+        }
+      }
+    ]
+  }
+  """
+
   setup do
     server = Bypass.open()
     base_url = "http://localhost:#{server.port}"
@@ -122,10 +139,27 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       }
     end
 
+    test "returns a list of ordered Broadway.Message with orderingKey in the :metadata", %{
+      opts: base_opts,
+      server: server
+    } do
+      on_pubsub_request(server, fn _url, _body ->
+        {:ok, @ordered_response}
+      end)
+
+      {:ok, opts} = PullClient.init(base_opts)
+
+      assert [message] = PullClient.receive_messages(10, & &1, opts)
+
+      assert message.metadata.messageId == "19917247038"
+      assert message.metadata.orderingKey == "key1"
+    end
+
     test "returns a list of Broadway.Message with :data and :metadata set", %{
       opts: base_opts
     } do
       {:ok, opts} = PullClient.init(base_opts)
+
       [message1, message2, message3, message4] = PullClient.receive_messages(10, & &1, opts)
 
       assert %Message{data: "Message1", metadata: %{publishTime: %DateTime{}}} = message1
