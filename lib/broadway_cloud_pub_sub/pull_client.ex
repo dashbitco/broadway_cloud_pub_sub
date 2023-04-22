@@ -142,6 +142,7 @@ defmodule BroadwayCloudPubSub.PullClient do
       attributes: metadata["attributes"],
       deliveryAttempt: delivery_attempt,
       messageId: metadata["messageId"],
+      orderingKey: metadata["orderingKey"],
       publishTime: parse_datetime(metadata["publishTime"])
     }
 
