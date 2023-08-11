@@ -106,7 +106,7 @@ defmodule BroadwayCloudPubSub.Producer do
   This producer emits a few [Telemetry](https://github.com/beam-telemetry/telemetry)
   events which are listed below.
 
-    * `[:broadway_cloud_pub_sub, :pull_client, :pull_request, :start | :stop | :exception]` spans -
+    * `[:broadway_cloud_pub_sub, :pull_client, :receive_messages, :start | :stop | :exception]` spans -
       these events are emitted in "span style" when executing pull requests to GCP PubSub.
       See `:telemetry.span/3`.
 
