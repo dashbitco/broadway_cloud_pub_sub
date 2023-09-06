@@ -9,8 +9,6 @@ defmodule BroadwayCloudPubSub.Options do
 
   @default_receive_timeout :infinity
 
-  @default_scope "https://www.googleapis.com/auth/pubsub"
-
   definition = [
     # Handled by Broadway.
     broadway: [type: :any, doc: false],
@@ -80,12 +78,10 @@ defmodule BroadwayCloudPubSub.Options do
       before the pull client returns an error.
       """
     ],
-    scope: [
-      type: {:custom, __MODULE__, :type_non_empty_string_or_tagged_tuple, [[{:name, :scope}]]},
-      default: @default_scope,
+    goth: [
+      type: :atom,
       doc: """
-      A string representing the scope or scopes to use when fetching
-      an access token. Note that this option only applies to the
+      The `Goth` module to use for authentication. Note that this option only applies to the
       default token generator.
       """
     ],
@@ -94,7 +90,7 @@ defmodule BroadwayCloudPubSub.Options do
       doc: """
       An MFArgs tuple that will be called before each request
       to fetch an authentication token. It should return `{:ok, String.t()} | {:error, any()}`.
-      By default this will invoke `Goth.Token.for_scope/1` with `"#{@default_scope}"`.
+      By default this will invoke `Goth.fetch/1` with the `:goth` option.
       See the "Custom token generator" section below for more information.
       """
     ],
@@ -152,13 +148,27 @@ defmodule BroadwayCloudPubSub.Options do
   Builds an MFArgs tuple for a token generator.
   """
   def make_token_generator(opts) do
-    scope = Keyword.fetch!(opts, :scope)
+    goth = Keyword.get(opts, :goth)
+
+    unless goth do
+      require Logger
+
+      Logger.error("""
+      the :goth option is required for the default authentication token generator
+
+      If you are upgrading from an earlier version of Goth, refer to the
+      upgrade guide for more information:
+
+      https://hexdocs.pm/goth/upgrade_guide.html
+      """)
+    end
+
     ensure_goth_loaded()
-    {__MODULE__, :generate_goth_token, [scope]}
+    {__MODULE__, :generate_goth_token, [goth]}
   end
 
   defp ensure_goth_loaded() do
-    unless Code.ensure_loaded?(Goth.Token) do
+    unless Code.ensure_loaded?(Goth) do
       require Logger
 
       Logger.error("""
@@ -166,8 +176,8 @@ defmodule BroadwayCloudPubSub.Options do
 
       Add goth to your dependencies:
 
-          defp deps() do
-            {:goth, "~> 1.0"}
+          defp deps do
+            {:goth, "~> 1.3"}
           end
 
       Or provide your own token generator:
@@ -250,8 +260,8 @@ defmodule BroadwayCloudPubSub.Options do
   end
 
   @doc false
-  def generate_goth_token(scope) do
-    with {:ok, %{token: token}} <- Goth.Token.for_scope(scope) do
+  def generate_goth_token(goth_name) do
+    with {:ok, %{token: token}} <- Goth.fetch(goth_name) do
       {:ok, token}
     end
   end

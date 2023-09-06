@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Relax `nimble_options` dependency.
 
+- Optional dependency `goth` must be v1.3+.
+
+### Removed
+
+- The `:scope` option has been removed.
+
 ## [0.8.0] - 2022-10-26
 
 This version moves Cloud PubSub from Tesla to Finch, so read the notes below and upgrade with care.

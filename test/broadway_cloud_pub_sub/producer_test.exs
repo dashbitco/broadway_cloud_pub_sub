@@ -187,9 +187,31 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                  ],
                  name: __MODULE__
                ]
-             } = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+             } =
+               prepare_for_start_module_opts(
+                 goth: FakeAuth,
+                 subscription: "projects/foo/subscriptions/bar"
+               )
 
       assert producer_opts[:subscription] == "projects/foo/subscriptions/bar"
+    end
+
+    test ":goth is optional, but logs an error with the default token generator" do
+      assert ExUnit.CaptureLog.capture_log(fn ->
+               assert {_,
+                       [
+                         producer: [
+                           module: {BroadwayCloudPubSub.Producer, producer_opts},
+                           concurrency: 1
+                         ],
+                         name: __MODULE__
+                       ]} =
+                        prepare_for_start_module_opts(
+                          subscription: "projects/foo/subscriptions/bar"
+                        )
+
+               assert Keyword.fetch(producer_opts, :goth) == :error
+             end) =~ "the :goth option is required for the default authentication token generator"
     end
 
     test ":max_number_of_messages is optional with default value 10" do
@@ -200,7 +222,11 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   concurrency: 1
                 ],
                 name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+              ]} =
+               prepare_for_start_module_opts(
+                 goth: FakeAuth,
+                 subscription: "projects/foo/subscriptions/bar"
+               )
 
       assert producer_opts[:max_number_of_messages] == 10
     end
@@ -215,6 +241,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
+                 goth: FakeAuth,
                  subscription: "projects/foo/subscriptions/bar",
                  max_number_of_messages: 1
                )
@@ -230,6 +257,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
+                 goth: FakeAuth,
                  subscription: "projects/foo/subscriptions/bar",
                  max_number_of_messages: 10
                )
@@ -241,6 +269,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         ~r/expected :max_number_of_messages to be a positive integer, got: 0/,
         fn ->
           prepare_for_start_module_opts(
+            goth: FakeAuth,
             subscription: "projects/foo/subscriptions/bar",
             max_number_of_messages: 0
           )
@@ -252,6 +281,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
         ~r/expected :max_number_of_messages to be a positive integer, got: -1/,
         fn ->
           prepare_for_start_module_opts(
+            goth: FakeAuth,
             subscription: "projects/foo/subscriptions/bar",
             max_number_of_messages: -1
           )
@@ -259,20 +289,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       )
     end
 
-    test ":scope is optional with a default value https://www.googleapis.com/auth/pubsub" do
-      assert {_,
-              [
-                producer: [
-                  module: {BroadwayCloudPubSub.Producer, producer_opts},
-                  concurrency: 1
-                ],
-                name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
-
-      assert producer_opts[:scope] == "https://www.googleapis.com/auth/pubsub"
-    end
-
-    test ":scope should be a string or tuple" do
+    test ":token_generator defaults to using Goth with the :goth option" do
       assert {_,
               [
                 producer: [
@@ -282,78 +299,12 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
-                 subscription: "projects/foo/subscriptions/bar",
-                 scope: "https://example.com"
+                 goth: MyGoth,
+                 subscription: "projects/foo/subscriptions/bar"
                )
-
-      assert {_, _, ["https://example.com"]} = producer_opts[:token_generator]
-
-      assert_raise ValidationError,
-                   ~r/expected :scope to be a non-empty string or tuple, got: :an_atom/,
-                   fn ->
-                     prepare_for_start_module_opts(
-                       subscription: "projects/foo/subscriptions/bar",
-                       scope: :an_atom
-                     )
-                   end
-
-      assert_raise ValidationError,
-                   ~r/expected :scope to be a non-empty string or tuple, got: 1/,
-                   fn ->
-                     prepare_for_start_module_opts(
-                       subscription: "projects/foo/subscriptions/bar",
-                       scope: 1
-                     )
-                   end
-
-      assert_raise ValidationError,
-                   ~r/expected :scope to be a non-empty string or tuple, got: {}/,
-                   fn ->
-                     prepare_for_start_module_opts(
-                       subscription: "projects/foo/subscriptions/bar",
-                       scope: {}
-                     )
-                   end
-
-      assert_raise ValidationError,
-                   ~r/expected :scope to be a non-empty string or tuple, got: {}/,
-                   fn ->
-                     prepare_for_start_module_opts(
-                       subscription: "projects/foo/subscriptions/bar",
-                       scope: {}
-                     )
-                   end
-
-      assert {_,
-              [
-                producer: [
-                  module: {BroadwayCloudPubSub.Producer, producer_opts},
-                  concurrency: 1
-                ],
-                name: __MODULE__
-              ]} =
-               prepare_for_start_module_opts(
-                 subscription: "projects/foo/subscriptions/bar",
-                 scope: {"mail@example.com", "https://example.com"}
-               )
-
-      assert {_, _, [{"mail@example.com", "https://example.com"}]} =
-               producer_opts[:token_generator]
-    end
-
-    test ":token_generator defaults to using Goth with default scope" do
-      assert {_,
-              [
-                producer: [
-                  module: {BroadwayCloudPubSub.Producer, producer_opts},
-                  concurrency: 1
-                ],
-                name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
 
       assert producer_opts[:token_generator] ==
-               {BroadwayCloudPubSub.Options, :generate_goth_token,
-                ["https://www.googleapis.com/auth/pubsub"]}
+               {BroadwayCloudPubSub.Options, :generate_goth_token, [MyGoth]}
     end
 
     test ":token_generator should be a tuple {Mod, Fun, Args}" do
@@ -401,7 +352,11 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   concurrency: 1
                 ],
                 name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+              ]} =
+               prepare_for_start_module_opts(
+                 goth: FakeAuth,
+                 subscription: "projects/foo/subscriptions/bar"
+               )
 
       assert producer_opts[:receive_timeout] == :infinity
     end
@@ -412,6 +367,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                      ~r/expected :receive_timeout to be a positive integer or :infinity, got: #{inspect(value)}/,
                      fn ->
                        prepare_for_start_module_opts(
+                         goth: FakeAuth,
                          subscription: "projects/foo/subscriptions/bar",
                          receive_timeout: value
                        )
@@ -427,6 +383,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
+                 goth: FakeAuth,
                  subscription: "projects/foo/subscriptions/bar",
                  receive_timeout: 15_000
                )
@@ -442,7 +399,11 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   concurrency: 1
                 ],
                 name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+              ]} =
+               prepare_for_start_module_opts(
+                 goth: FakeAuth,
+                 subscription: "projects/foo/subscriptions/bar"
+               )
 
       assert producer_opts[:on_success] == :ack
     end
@@ -455,7 +416,11 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   concurrency: 1
                 ],
                 name: __MODULE__
-              ]} = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+              ]} =
+               prepare_for_start_module_opts(
+                 goth: FakeAuth,
+                 subscription: "projects/foo/subscriptions/bar"
+               )
 
       assert producer_opts[:on_failure] == :noop
     end
@@ -471,6 +436,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   name: __MODULE__
                 ]} =
                  prepare_for_start_module_opts(
+                   goth: FakeAuth,
                    subscription: "projects/foo/subscriptions/bar",
                    on_success: action
                  )
@@ -482,6 +448,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :foo/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_success: :foo
                      )
@@ -491,6 +458,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: "foo"/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_success: "foo"
                      )
@@ -500,6 +468,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: 1/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_success: 1
                      )
@@ -509,6 +478,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_success to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: SomeModule/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_success: SomeModule
                      )
@@ -526,6 +496,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                   name: __MODULE__
                 ]} =
                  prepare_for_start_module_opts(
+                   goth: FakeAuth,
                    subscription: "projects/foo/subscriptions/bar",
                    on_failure: action
                  )
@@ -537,6 +508,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: :foo/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_failure: :foo
                      )
@@ -546,6 +518,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: "foo"/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_failure: "foo"
                      )
@@ -555,6 +528,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: 1/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_failure: 1
                      )
@@ -564,6 +538,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                    ~r/expected :on_failure to be one of :ack, :noop, :nack, or {:nack, integer} where integer is between 0 and 600, got: SomeModule/,
                    fn ->
                      prepare_for_start_module_opts(
+                       goth: FakeAuth,
                        subscription: "projects/foo/subscriptions/bar",
                        on_failure: SomeModule
                      )
@@ -580,6 +555,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
+                 goth: FakeAuth,
                  on_failure: :nack,
                  on_success: :nack,
                  subscription: "projects/foo/subscriptions/bar"
@@ -601,7 +577,11 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                  ],
                  name: __MODULE__
                ]
-             } = prepare_for_start_module_opts(subscription: "projects/foo/subscriptions/bar")
+             } =
+               prepare_for_start_module_opts(
+                 goth: FakeAuth,
+                 subscription: "projects/foo/subscriptions/bar"
+               )
     end
 
     test "with :client PullClient and :finch returns empty specs" do
@@ -616,6 +596,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                ]
              } =
                prepare_for_start_module_opts(
+                 goth: FakeAuth,
                  subscription: "projects/foo/subscriptions/bar",
                  finch: MyFinch
                )
@@ -752,6 +733,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
       Forwarder,
       build_broadway_opts(broadway_name, opts,
         client: client,
+        goth: DefaultGothProducerOption,
         subscription: "projects/my-project/subscriptions/my-subscription",
         receive_interval: 0,
         test_pid: self(),
