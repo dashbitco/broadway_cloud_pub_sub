@@ -25,10 +25,10 @@ defmodule BroadwayCloudPubSub.Producer do
   For example, define a `MyApp.fetch_token/0` function:
 
       defmodule MyApp do
-        @scope "https://www.googleapis.com/auth/pubsub"
 
-        def fetch_token() do
-          with {:ok, token} <- Goth.Token.for_scope(@scope)
+        @doc "Fetches a Google auth token"
+        def fetch_token do
+          with {:ok, token} <- Goth.fetch(MyApp.Goth)
             {:ok, token.token}
           end
         end
@@ -83,6 +83,7 @@ defmodule BroadwayCloudPubSub.Producer do
         name: MyBroadway,
         producer: [
           module: {BroadwayCloudPubSub.Producer,
+            goth: MyApp.Goth,
             subscription: "projects/my-project/subscriptions/my_subscription"
           }
         ],

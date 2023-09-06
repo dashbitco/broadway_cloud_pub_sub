@@ -299,12 +299,12 @@ defmodule BroadwayCloudPubSub.ProducerTest do
                 name: __MODULE__
               ]} =
                prepare_for_start_module_opts(
-                 goth: MyGoth,
+                 goth: FakeAuth,
                  subscription: "projects/foo/subscriptions/bar"
                )
 
       assert producer_opts[:token_generator] ==
-               {BroadwayCloudPubSub.Options, :generate_goth_token, [MyGoth]}
+               {BroadwayCloudPubSub.Options, :generate_goth_token, [FakeAuth]}
     end
 
     test ":token_generator should be a tuple {Mod, Fun, Args}" do
