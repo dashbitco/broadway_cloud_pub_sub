@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Requires Elixir v1.11+.
+
 - Relax `nimble_options` dependency.
 
 - Optional dependency `goth` must be v1.3+.
