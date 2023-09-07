@@ -10,7 +10,7 @@ This project provides:
 
 * `BroadwayCloudPubSub.Producer` - A GenStage producer that continuously receives messages from a Pub/Sub subscription acknowledges them after being successfully processed.
 * `BroadwayCloudPubSub.Client` - A generic behaviour to implement Pub/Sub clients.
-* `BroadwayCloudPubSub.GoogleApiClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
+* `BroadwayCloudPubSub.PullClient` - Default REST client used by `BroadwayCloudPubSub.Producer`.
 
 ## Installation
 
@@ -19,8 +19,8 @@ Add `:broadway_cloud_pub_sub` to the list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:broadway_cloud_pub_sub, "~> 0.7.0"},
-    {:goth, "~> 1.0"}
+    {:broadway_cloud_pub_sub, "~> 0.8.0"},
+    {:goth, "~> 1.3"}
   ]
 end
 ```
@@ -36,6 +36,7 @@ Broadway.start_link(MyBroadway,
   name: MyBroadway,
   producer: [
     module: {BroadwayCloudPubSub.Producer,
+      goth: MyGoth,
       subscription: "projects/my-project/subscriptions/my-subscription"
     }
   ]
