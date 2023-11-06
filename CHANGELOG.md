@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2023-11-06
+
 ### Changed
 
 - Requires Elixir v1.11+.
@@ -15,9 +17,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Optional dependency `goth` must be v1.3+.
 
+- **Possible breaking change:** The default token generator requires the `:goth` option to fetch tokens.
+
+  If you had not yet upgraded to Goth v1.3+ please follow the [upgrade guide][goth_upgrade].
+  Then wherever you invoke `Broadway.start_link/2`, add the `:goth` option:
+
+  ```elixir
+  producer: [
+    module:
+      {BroadwayCloudPubSub.Producer,
+       goth: MyApp.Goth,
+       subscription: "projects/<your-project-id>/subscriptions/<your-subscription-id>"}
+  ]
+  ```
+
+  If you had previously upgraded to Goth v1.3+ then wherever you invoke `Broadway.start_link/2`,
+  you may have something like the following:
+
+  ```elixir
+  producer: [
+    module:
+      {BroadwayCloudPubSub.Producer,
+       subscription: "projects/<your-project-id>/subscriptions/<your-subscription-id>",
+       token_generator: {MyApp, :fetch_token, []}}
+  ]
+  ```
+
+  ...where `MyApp.fetch_token/0` is similar to the following:
+
+  ```elixir
+  defmodule MyApp
+    def fetch_token do
+      with {:ok, token} <- Goth.fetch(MyApp.Goth) do
+        {:ok, token.token}
+      end
+    end
+  end
+  ```
+
+  You can remove your custom token generator function and replace your producer config with this:
+
+
+  ```elixir
+  producer: [
+    module:
+      {BroadwayCloudPubSub.Producer,
+       goth: MyApp.Goth,
+       subscription: "projects/<your-project-id>/subscriptions/<your-subscription-id>"}
+  ]
+  ```
+
+### Added
+
+- The `:goth` option specifies the [Goth][goth] server for
+  the default token generator.
+
 ### Removed
 
-- The `:scope` option has been removed.
+- The `:scope` option has been removed. You may set custom scopes on your own [Goth][goth] server
+  via the `:source` option.
+
+  For example, if you want to use the scope `"https://www.googleapis.com/auth/pubsub"`, then
+  wherever you start Goth add the `:scopes` option to your authentication source:
+
+  ```elixir
+    # The `:metadata` source type retrieves credentials from Google metadata servers.
+    # Refer to the Goth documentation for more source options.
+    source = {:metadata, scopes: ["https://www.googleapis.com/auth/pubsub"]}
+
+    children = [
+      {Goth, name: MyApp.Goth, source: source}
+    ]
+  ```
 
 ## [0.8.0] - 2022-10-26
 
@@ -186,7 +257,8 @@ This version moves Cloud PubSub from Tesla to Finch, so read the notes below and
 - `BroadwayCloudPubSub.Token` - A generic behaviour to implement token authentication for Pub/Sub clients.
 - `BroadwayCloudPubSub.GothToken` - Default token provider used by `BroadwayCloudPubSub.Producer`.
 
-[Unreleased]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/dashbitco/broadway_cloud_pub_sub/compare/v0.6.2...v0.7.0
@@ -204,3 +276,5 @@ This version moves Cloud PubSub from Tesla to Finch, so read the notes below and
 
 
 [finch]: https://hexdocs.pm/finch
+[goth]: https://hexdocs.pm/goth
+[goth_upgrade]: https://hexdocs.pm/goth/upgrade_guide.html
