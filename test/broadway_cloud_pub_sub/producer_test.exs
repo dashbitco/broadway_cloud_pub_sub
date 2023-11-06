@@ -145,7 +145,7 @@ defmodule BroadwayCloudPubSub.ProducerTest do
   end
 
   describe "prepare_for_start/2 validation" do
-    test ":subcription should be a string" do
+    test ":subscription should be a string" do
       assert_raise(
         ValidationError,
         "required option :subscription not found, received options: [:client]",
