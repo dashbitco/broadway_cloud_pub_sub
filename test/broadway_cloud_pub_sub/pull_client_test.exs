@@ -79,6 +79,23 @@ defmodule BroadwayCloudPubSub.PullClientTest do
   }
   """
 
+  @no_payload_response """
+  {
+    "receivedMessages": [
+      {
+        "ackId": "1",
+        "message": {
+          "attributes": {
+            "payloadFormat": "NONE"
+          },
+          "messageId": "20240501001",
+          "publishTime": "2024-05-01T13:07:41.716Z"
+        }
+      }
+    ]
+  }
+  """
+
   setup do
     server = Bypass.open()
     base_url = "http://localhost:#{server.port}"
@@ -153,6 +170,20 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
       assert message.metadata.messageId == "19917247038"
       assert message.metadata.orderingKey == "key1"
+    end
+
+    test "returns a list of Broadway.Message when payloadFormat is NONE", %{
+      opts: base_opts,
+      server: server
+    } do
+      on_pubsub_request(server, fn _, _ ->
+        {:ok, @no_payload_response}
+      end)
+
+      {:ok, opts} = PullClient.init(base_opts)
+
+      assert [message] = PullClient.receive_messages(10, & &1, opts)
+      assert message.metadata.messageId == "20240501001"
     end
 
     test "returns a list of Broadway.Message with :data and :metadata set", %{
