@@ -167,11 +167,12 @@ defmodule BroadwayCloudPubSub.PullClient do
     end
   end
 
-  defp decode_message(%{"data" => nil} = message), do: message
-
-  defp decode_message(%{"data" => encoded_data} = message) do
+  defp decode_message(%{"data" => encoded_data} = message) when is_binary(encoded_data) do
     %{message | "data" => Base.decode64!(encoded_data)}
   end
+
+  defp decode_message(%{"data" => nil} = message), do: message
+  defp decode_message(%{"attributes" => %{"payloadFormat" => "NONE"}} = message), do: message
 
   defp headers(config) do
     token = get_token(config)
