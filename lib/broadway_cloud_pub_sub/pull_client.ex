@@ -171,6 +171,7 @@ defmodule BroadwayCloudPubSub.PullClient do
     %{message | "data" => Base.decode64!(encoded_data)}
   end
 
+  defp decode_message(%{"data" => nil} = message), do: message
   defp decode_message(message) when is_map(message) and not is_map_key(message, "data"), do: message
 
   defp headers(config) do
