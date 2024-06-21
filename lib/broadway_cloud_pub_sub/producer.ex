@@ -145,6 +145,7 @@ defmodule BroadwayCloudPubSub.Producer do
     {:producer,
      %{
        demand: 0,
+       draining: false,
        receive_timer: nil,
        receive_interval: receive_interval,
        client: {client, config},
@@ -193,10 +194,6 @@ defmodule BroadwayCloudPubSub.Producer do
   end
 
   @impl true
-  def handle_info(:receive_messages, %{receive_timer: nil} = state) do
-    {:noreply, [], state}
-  end
-
   def handle_info(:receive_messages, state) do
     handle_receive_messages(%{state | receive_timer: nil})
   end
@@ -226,14 +223,16 @@ defmodule BroadwayCloudPubSub.Producer do
   end
 
   @impl Producer
-  def prepare_for_draining(%{receive_timer: receive_timer} = state) do
-    receive_timer && Process.cancel_timer(receive_timer)
-
+  def prepare_for_draining(state) do
     if state.worker_task do
       Task.shutdown(state.worker_task, :brutal_kill)
     end
 
-    {:noreply, [], %{state | receive_timer: nil, worker_task: nil}}
+    {:noreply, [], %{state | worker_task: nil, draining: true}}
+  end
+
+  defp handle_receive_messages(%{draining: true} = state) do
+    {:noreply, [], state}
   end
 
   defp handle_receive_messages(%{receive_timer: nil, demand: demand, worker_task: nil} = state)
