@@ -10,6 +10,10 @@ defmodule BroadwayCloudPubSub.PullClient do
 
   @behaviour Client
 
+  @retry_codes [408, 500, 502, 503, 504, 522, 524]
+  @retry_delay 500
+  @max_retries 3
+
   @impl Client
   def prepare_to_connect(name, producer_opts) do
     case Keyword.fetch(producer_opts, :finch) do
@@ -188,7 +192,7 @@ defmodule BroadwayCloudPubSub.PullClient do
     config.base_url <> path
   end
 
-  defp execute(config, action, payload) do
+  defp execute(config, action, payload, retry_attempts \\ 0) do
     url = url(config, action)
     body = Jason.encode!(payload)
     headers = headers(config)
@@ -196,6 +200,11 @@ defmodule BroadwayCloudPubSub.PullClient do
     case finch_request(config.finch, url, body, headers, config.receive_timeout) do
       {:ok, %Response{status: 200, body: body}} ->
         {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{status: status}}
+      when status in @retry_codes and retry_attempts < @max_retries ->
+        Process.sleep(@retry_delay)
+        execute(config, action, payload, retry_attempts + 1)
 
       {:ok, %Response{} = resp} ->
         {:error, format_error(url, resp)}
