@@ -13,7 +13,7 @@ defmodule BroadwayCloudPubSub.Options do
     # Handled by Broadway.
     broadway: [type: :any, doc: false],
     client: [
-      type: :atom,
+      type: {:or, [:atom, :mod_arg]},
       default: BroadwayCloudPubSub.PullClient,
       doc: """
       A module that implements the BroadwayCloudPubSub.Client behaviour.

@@ -139,7 +139,15 @@ defmodule BroadwayCloudPubSub.Producer do
     receive_interval = opts[:receive_interval]
     client = opts[:client]
 
-    {:ok, config} = client.init(opts)
+    {:ok, config} =
+      case client do
+        {client, config} ->
+          client.init(Map.merge(opts, Map.new(config)))
+
+        client ->
+          client.init(opts)
+      end
+
     ack_ref = opts[:broadway][:name]
 
     {:producer,

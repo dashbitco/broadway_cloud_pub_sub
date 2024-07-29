@@ -124,6 +124,24 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     end)
   end
 
+  def on_pubsub_request_once(server, fun) when is_function(fun, 2) do
+    test_pid = self()
+
+    Bypass.expect_once(server, fn conn ->
+      url = Plug.Conn.request_url(conn)
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      body = Jason.decode!(body)
+
+      send(test_pid, {:http_request_called, %{url: url, body: body}})
+
+      case fun.(url, body) do
+        {:ok, resp_body} -> Plug.Conn.resp(conn, 200, resp_body)
+        {:error, resp_body} -> Plug.Conn.resp(conn, 500, resp_body)
+        {:error, status, resp_body} -> Plug.Conn.resp(conn, status, resp_body)
+      end
+    end)
+  end
+
   defp init_with_ack_builder(opts) do
     # mimics workflow from Producer.prepare_for_start/2
     ack_ref = opts[:broadway][:name]
@@ -170,6 +188,32 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
       assert message.metadata.messageId == "19917247038"
       assert message.metadata.orderingKey == "key1"
+    end
+
+    test "retries if the option is set", %{
+      opts: base_opts,
+      server: server
+    } do
+      on_pubsub_request_once(server, fn _, _ ->
+        {:error, 502, @empty_response}
+      end)
+
+      on_pubsub_request_once(server, fn _, _ ->
+        {:error, 503, @empty_response}
+      end)
+
+      on_pubsub_request_once(server, fn _, _ ->
+        {:ok, @ordered_response}
+      end)
+
+      {:ok, opts} =
+        base_opts
+        |> Keyword.put(:max_retries, 3)
+        |> Keyword.put(:retry_delay, 0)
+        |> Keyword.put(:retry_codes, [502, 503])
+        |> PullClient.init()
+
+      assert [_message] = PullClient.receive_messages(10, & &1, opts)
     end
 
     test "returns a list of Broadway.Message when payloadFormat is NONE", %{
