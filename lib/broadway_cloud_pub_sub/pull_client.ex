@@ -222,7 +222,7 @@ defmodule BroadwayCloudPubSub.PullClient do
   end
 
   defp should_retry(%Response{status: status}, config, retries_left) do
-    status in retry_codes(config) and retries_left > 0
+    retries_left > 0 and status in retry_codes(config)
   end
 
   defp max_retries(config) do
