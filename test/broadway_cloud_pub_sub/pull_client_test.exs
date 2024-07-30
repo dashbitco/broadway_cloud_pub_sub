@@ -169,7 +169,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
-          receive_timeout: :infinity
+          receive_timeout: :infinity,
+          max_retries: 0
         ]
       }
     end
@@ -358,7 +359,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
           receive_timeout: :infinity,
-          topology_name: Broadway3
+          topology_name: Broadway3,
+          max_retries: 0
         ]
       }
     end
@@ -443,7 +445,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
           receive_timeout: :infinity,
-          topology_name: Broadway3
+          topology_name: Broadway3,
+          max_retries: 0
         ]
       }
     end

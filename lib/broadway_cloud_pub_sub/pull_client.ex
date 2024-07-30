@@ -12,7 +12,7 @@ defmodule BroadwayCloudPubSub.PullClient do
 
   @default_retry_codes [408, 500, 502, 503, 504, 522, 524]
   @default_retry_delay_ms 500
-  @default_max_retries 0
+  @default_max_retries 10
 
   @impl Client
   def prepare_to_connect(name, producer_opts) do
