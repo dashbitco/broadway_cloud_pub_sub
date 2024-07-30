@@ -124,20 +124,17 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     end)
   end
 
-  def on_pubsub_request_once(server, fun) when is_function(fun, 2) do
-    test_pid = self()
+  def multiple_errors_on_pubsub(server, error_count: total_errors, error_status: error_status) do
+    {:ok, agent} = Agent.start_link(fn -> 1 end)
 
-    Bypass.expect_once(server, fn conn ->
-      url = Plug.Conn.request_url(conn)
-      {:ok, body, conn} = Plug.Conn.read_body(conn)
-      body = Jason.decode!(body)
+    Bypass.expect(server, fn conn ->
+      attempt = Agent.get_and_update(agent, fn num -> {num, num + 1} end)
 
-      send(test_pid, {:http_request_called, %{url: url, body: body}})
-
-      case fun.(url, body) do
-        {:ok, resp_body} -> Plug.Conn.resp(conn, 200, resp_body)
-        {:error, resp_body} -> Plug.Conn.resp(conn, 500, resp_body)
-        {:error, status, resp_body} -> Plug.Conn.resp(conn, status, resp_body)
+      if attempt <= total_errors do
+        Plug.Conn.resp(conn, error_status, @empty_response)
+      else
+        Agent.stop(agent)
+        Plug.Conn.resp(conn, 200, @ordered_response)
       end
     end)
   end
@@ -195,23 +192,13 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       opts: base_opts,
       server: server
     } do
-      on_pubsub_request_once(server, fn _, _ ->
-        {:error, 502, @empty_response}
-      end)
-
-      on_pubsub_request_once(server, fn _, _ ->
-        {:error, 503, @empty_response}
-      end)
-
-      on_pubsub_request_once(server, fn _, _ ->
-        {:ok, @ordered_response}
-      end)
+      multiple_errors_on_pubsub(server, error_count: 2, error_status: 502)
 
       {:ok, opts} =
         base_opts
         |> Keyword.put(:max_retries, 3)
-        |> Keyword.put(:retry_delay, 0)
-        |> Keyword.put(:retry_codes, [502, 503])
+        |> Keyword.put(:retry_delay_ms, 0)
+        |> Keyword.put(:retry_codes, [502])
         |> PullClient.init()
 
       assert [_message] = PullClient.receive_messages(10, & &1, opts)
