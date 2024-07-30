@@ -161,7 +161,14 @@ defmodule BroadwayCloudPubSub.Producer do
     opts = NimbleOptions.validate!(client_opts, Options.definition())
 
     ack_ref = broadway_opts[:name]
-    client = opts[:client]
+
+    {client, opts} =
+      case opts[:client] do
+        {client, client_opts} -> {client, Keyword.merge(opts, client_opts)}
+        client -> {client, opts}
+      end
+
+    opts = Keyword.put(opts, :client, client)
 
     opts =
       Keyword.put_new_lazy(opts, :token_generator, fn ->

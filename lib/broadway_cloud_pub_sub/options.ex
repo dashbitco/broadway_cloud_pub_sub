@@ -13,13 +13,26 @@ defmodule BroadwayCloudPubSub.Options do
     # Handled by Broadway.
     broadway: [type: :any, doc: false],
     client: [
-      type: :atom,
+      type: {:or, [:atom, :mod_arg]},
       default: BroadwayCloudPubSub.PullClient,
       doc: """
       A module that implements the BroadwayCloudPubSub.Client behaviour.
       This module is responsible for fetching and acknowledging the messages.
       Pay attention that all options passed to the producer will be forwarded
       to the client. It's up to the client to normalize the options it needs.
+
+      The BroadwayCloudPubSub.PullClient is the default client and will
+      automatically retry the following errors [408, 500, 502, 503, 504, 522,
+      524] up to 10 times with a 500ms pause between retries. This can be
+      configured by passing the module with options to the client:
+
+        {BroadwayCloudPubSub.PullClient,
+          retry_codes: [502, 503],
+          retry_delay_ms: 300,
+          max_retries: 5}
+
+      These options will be merged with the options to the producer and passed
+      to the client init/1 function.
       """
     ],
     subscription: [

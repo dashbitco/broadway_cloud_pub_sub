@@ -124,6 +124,21 @@ defmodule BroadwayCloudPubSub.PullClientTest do
     end)
   end
 
+  def multiple_errors_on_pubsub(server, error_count: total_errors, error_status: error_status) do
+    {:ok, agent} = Agent.start_link(fn -> 1 end)
+
+    Bypass.expect(server, fn conn ->
+      attempt = Agent.get_and_update(agent, fn num -> {num, num + 1} end)
+
+      if attempt <= total_errors do
+        Plug.Conn.resp(conn, error_status, @empty_response)
+      else
+        Agent.stop(agent)
+        Plug.Conn.resp(conn, 200, @ordered_response)
+      end
+    end)
+  end
+
   defp init_with_ack_builder(opts) do
     # mimics workflow from Producer.prepare_for_start/2
     ack_ref = opts[:broadway][:name]
@@ -151,7 +166,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           max_number_of_messages: 10,
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
-          receive_timeout: :infinity
+          receive_timeout: :infinity,
+          max_retries: 0
         ]
       }
     end
@@ -170,6 +186,22 @@ defmodule BroadwayCloudPubSub.PullClientTest do
 
       assert message.metadata.messageId == "19917247038"
       assert message.metadata.orderingKey == "key1"
+    end
+
+    test "retries if the option is set", %{
+      opts: base_opts,
+      server: server
+    } do
+      multiple_errors_on_pubsub(server, error_count: 3, error_status: 502)
+
+      {:ok, opts} =
+        base_opts
+        |> Keyword.put(:max_retries, 3)
+        |> Keyword.put(:retry_delay_ms, 0)
+        |> Keyword.put(:retry_codes, [502])
+        |> PullClient.init()
+
+      assert [_message] = PullClient.receive_messages(10, & &1, opts)
     end
 
     test "returns a list of Broadway.Message when payloadFormat is NONE", %{
@@ -314,7 +346,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
           receive_timeout: :infinity,
-          topology_name: Broadway3
+          topology_name: Broadway3,
+          max_retries: 0
         ]
       }
     end
@@ -399,7 +432,8 @@ defmodule BroadwayCloudPubSub.PullClientTest do
           subscription: "projects/foo/subscriptions/bar",
           token_generator: {__MODULE__, :generate_token, []},
           receive_timeout: :infinity,
-          topology_name: Broadway3
+          topology_name: Broadway3,
+          max_retries: 0
         ]
       }
     end

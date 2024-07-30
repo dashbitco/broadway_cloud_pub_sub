@@ -10,6 +10,10 @@ defmodule BroadwayCloudPubSub.PullClient do
 
   @behaviour Client
 
+  @default_retry_codes [408, 500, 502, 503, 504, 522, 524]
+  @default_retry_delay_ms 500
+  @default_max_retries 10
+
   @impl Client
   def prepare_to_connect(name, producer_opts) do
     case Keyword.fetch(producer_opts, :finch) do
@@ -192,17 +196,45 @@ defmodule BroadwayCloudPubSub.PullClient do
     url = url(config, action)
     body = Jason.encode!(payload)
     headers = headers(config)
+    execute(url, body, headers, config, action, payload, max_retries(config))
+  end
 
+  defp execute(url, body, headers, config, action, payload, retries_left) do
     case finch_request(config.finch, url, body, headers, config.receive_timeout) do
       {:ok, %Response{status: 200, body: body}} ->
         {:ok, Jason.decode!(body)}
 
       {:ok, %Response{} = resp} ->
-        {:error, format_error(url, resp)}
+        maybe_retry(resp, url, body, headers, config, action, payload, retries_left)
 
       {:error, err} ->
         {:error, format_error(url, err)}
     end
+  end
+
+  defp maybe_retry(resp, url, body, headers, config, action, payload, retries_left) do
+    if should_retry(resp, config, retries_left) do
+      config |> retry_delay() |> Process.sleep()
+      execute(url, body, headers, config, action, payload, retries_left - 1)
+    else
+      {:error, format_error(url, resp)}
+    end
+  end
+
+  defp should_retry(%Response{status: status}, config, retries_left) do
+    retries_left > 0 and status in retry_codes(config)
+  end
+
+  defp max_retries(config) do
+    config[:max_retries] || @default_max_retries
+  end
+
+  defp retry_codes(config) do
+    config[:retry_codes] || @default_retry_codes
+  end
+
+  defp retry_delay(config) do
+    config[:retry_delay_ms] || @default_retry_delay_ms
   end
 
   defp finch_request(finch, url, body, headers, timeout) do

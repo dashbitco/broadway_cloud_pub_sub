@@ -711,6 +711,20 @@ defmodule BroadwayCloudPubSub.ProducerTest do
     end
   end
 
+  test "passing extra options to client" do
+    {:ok, message_server} = MessageServer.start_link()
+    broadway_name = new_unique_name()
+
+    {:ok, pid_1} =
+      start_broadway(
+        broadway_name,
+        message_server,
+        {FakeClient, max_retries: 3, retry_codes: [502, 503], retry_delay_ms: 300}
+      )
+
+    stop_broadway(pid_1)
+  end
+
   test "support multiple topologies" do
     {:ok, message_server} = MessageServer.start_link()
     broadway_name = new_unique_name()
