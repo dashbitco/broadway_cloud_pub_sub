@@ -140,7 +140,6 @@ defmodule BroadwayCloudPubSub.Producer do
     client = opts[:client]
 
     {:ok, config} = client.init(opts)
-
     ack_ref = opts[:broadway][:name]
 
     {:producer,
