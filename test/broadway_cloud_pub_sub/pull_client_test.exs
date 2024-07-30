@@ -192,7 +192,7 @@ defmodule BroadwayCloudPubSub.PullClientTest do
       opts: base_opts,
       server: server
     } do
-      multiple_errors_on_pubsub(server, error_count: 2, error_status: 502)
+      multiple_errors_on_pubsub(server, error_count: 3, error_status: 502)
 
       {:ok, opts} =
         base_opts

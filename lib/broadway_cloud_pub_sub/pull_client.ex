@@ -205,7 +205,7 @@ defmodule BroadwayCloudPubSub.PullClient do
         {:ok, Jason.decode!(body)}
 
       {:ok, %Response{} = resp} ->
-        maybe_retry(resp, url, body, headers, config, action, payload, retries_left - 1)
+        maybe_retry(resp, url, body, headers, config, action, payload, retries_left)
 
       {:error, err} ->
         {:error, format_error(url, err)}
@@ -215,7 +215,7 @@ defmodule BroadwayCloudPubSub.PullClient do
   defp maybe_retry(resp, url, body, headers, config, action, payload, retries_left) do
     if should_retry(resp, config, retries_left) do
       config |> retry_delay() |> Process.sleep()
-      execute(url, body, headers, config, action, payload, retries_left)
+      execute(url, body, headers, config, action, payload, retries_left - 1)
     else
       {:error, format_error(url, resp)}
     end
